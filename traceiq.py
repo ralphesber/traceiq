@@ -11,9 +11,10 @@ import hashlib
 import json
 import os
 import sys
+import time
 from collections import Counter
 from datetime import datetime, timedelta, timezone
-from statistics import mean
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -21,8 +22,8 @@ import requests
 
 LANGSMITH_API_BASE = "https://api.smith.langchain.com"
 
-# Approximate cost per 1K tokens (input/output averaged)
-MODEL_COSTS = {
+# Default cost model (per 1K tokens, input/output averaged)
+DEFAULT_MODEL_COSTS = {
     "gpt-4o": 0.0075,
     "gpt-4o-mini": 0.00015,
     "gpt-4-turbo": 0.015,
@@ -35,6 +36,38 @@ MODEL_COSTS = {
     "default": 0.005,
 }
 
+# Cost model loaded from config file
+MODEL_COSTS: dict[str, float] = {}
+
+
+def load_cost_model() -> dict[str, float]:
+    """Load cost model from cost_model.json, creating it if it doesn't exist."""
+    cost_file = Path(__file__).parent / "cost_model.json"
+
+    if not cost_file.exists():
+        # Create default config file
+        with open(cost_file, "w") as f:
+            json.dump(DEFAULT_MODEL_COSTS, f, indent=2)
+        print(f"[TraceIQ] Created default cost model config: {cost_file}", file=sys.stderr)
+        return DEFAULT_MODEL_COSTS.copy()
+
+    try:
+        with open(cost_file) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"[TraceIQ] Warning: could not load cost_model.json ({e}), using defaults", file=sys.stderr)
+        return DEFAULT_MODEL_COSTS.copy()
+
+
+def get_model_cost(model: str) -> float:
+    """Get cost per 1K tokens for a model, with fallback to default."""
+    if model in MODEL_COSTS:
+        return MODEL_COSTS[model]
+
+    # Log missing model
+    print(f"[TraceIQ] Note: model '{model}' not found in cost_model.json, using default rate", file=sys.stderr)
+    return MODEL_COSTS.get("default", DEFAULT_MODEL_COSTS["default"])
+
 
 def get_api_key(args_api_key: str | None) -> str:
     """Get API key from args or environment."""
@@ -45,8 +78,24 @@ def get_api_key(args_api_key: str | None) -> str:
     return api_key
 
 
-def fetch_runs(api_key: str, project_name: str, days: int) -> list[dict]:
-    """Fetch runs from LangSmith API."""
+def fetch_runs(
+    api_key: str,
+    project_name: str,
+    days: int,
+    page_delay: float = 0.1,
+    max_retries: int = 3,
+    default_retry_after: int = 60,
+) -> list[dict]:
+    """Fetch runs from LangSmith API with rate limiting.
+
+    Args:
+        api_key: LangSmith API key
+        project_name: Name of the project to fetch runs from
+        days: Number of days of history to fetch
+        page_delay: Delay in seconds between paginated requests (default: 0.1)
+        max_retries: Maximum retries on 429 rate limit (default: 3)
+        default_retry_after: Default wait time in seconds if Retry-After header missing (default: 60)
+    """
     headers = {"x-api-key": api_key}
 
     end_time = datetime.now(timezone.utc)
@@ -54,6 +103,7 @@ def fetch_runs(api_key: str, project_name: str, days: int) -> list[dict]:
 
     all_runs = []
     cursor = None
+    is_first_request = True
 
     while True:
         params = {
@@ -65,17 +115,40 @@ def fetch_runs(api_key: str, project_name: str, days: int) -> list[dict]:
         if cursor:
             params["cursor"] = cursor
 
-        try:
-            response = requests.get(
-                f"{LANGSMITH_API_BASE}/api/v1/runs",
-                headers=headers,
-                params=params,
-                timeout=30,
-            )
-            response.raise_for_status()
-        except requests.RequestException as e:
-            print(f"Error fetching runs: {e}")
-            sys.exit(1)
+        # Add delay between paginated requests (not before first request)
+        if not is_first_request:
+            time.sleep(page_delay)
+        is_first_request = False
+
+        # Retry loop for rate limiting
+        retries = 0
+        while retries <= max_retries:
+            try:
+                response = requests.get(
+                    f"{LANGSMITH_API_BASE}/api/v1/runs",
+                    headers=headers,
+                    params=params,
+                    timeout=30,
+                )
+
+                # Handle rate limiting (429)
+                if response.status_code == 429:
+                    retries += 1
+                    if retries > max_retries:
+                        print(f"Error: Rate limited after {max_retries} retries", file=sys.stderr)
+                        sys.exit(1)
+
+                    retry_after = int(response.headers.get("Retry-After", default_retry_after))
+                    print(f"[TraceIQ] Rate limited (429), waiting {retry_after}s (retry {retries}/{max_retries})", file=sys.stderr)
+                    time.sleep(retry_after)
+                    continue
+
+                response.raise_for_status()
+                break  # Success, exit retry loop
+
+            except requests.RequestException as e:
+                print(f"Error fetching runs: {e}", file=sys.stderr)
+                sys.exit(1)
 
         data = response.json()
         runs = data.get("runs", data) if isinstance(data, dict) else data
@@ -152,7 +225,14 @@ def extract_tokens(run: dict) -> int:
     prompt_tokens = run.get("prompt_tokens", 0) or extra.get("prompt_tokens", 0)
     completion_tokens = run.get("completion_tokens", 0) or extra.get("completion_tokens", 0)
 
-    return prompt_tokens + completion_tokens
+    total = prompt_tokens + completion_tokens
+
+    # Log fallback warning if no token count found
+    if total == 0:
+        run_id = run.get("id", "unknown")
+        print(f"[TraceIQ] Warning: could not extract token count for run {run_id}", file=sys.stderr)
+
+    return total
 
 
 def extract_model(run: dict) -> str | None:
@@ -298,7 +378,7 @@ def analyze_runs(runs: list[dict], days: int) -> dict[str, Any]:
     total_tokens = sum(extract_tokens(r) for r in runs)
     models_used = [m for r in runs if (m := extract_model(r))]
     primary_model = Counter(models_used).most_common(1)[0][0] if models_used else "default"
-    cost_per_1k = MODEL_COSTS.get(primary_model, MODEL_COSTS["default"])
+    cost_per_1k = get_model_cost(primary_model)
     estimated_cost = (total_tokens / 1000) * cost_per_1k
     cost_per_run = estimated_cost / total_runs if total_runs > 0 else 0
 
@@ -513,17 +593,124 @@ def generate_markdown_report(analysis: dict, project: str, days: int) -> str:
 
 
 def generate_json_report(analysis: dict, project: str, days: int) -> str:
-    """Generate JSON report from analysis."""
-    report = {
-        "project": project,
-        "period_days": days,
-        "generated": datetime.now().isoformat(),
-        "analysis": analysis,
+    """Generate JSON report from analysis with standardized schema v1."""
+    now = datetime.now(timezone.utc)
+
+    # Build alerts from flags
+    alerts = []
+    for flag in analysis.get("flags", []):
+        # Map flag type to severity
+        severity = "warning"
+        if flag["type"] == "latency_regression":
+            severity = "critical"
+        elif flag["type"] == "error_rate_increase":
+            severity = "critical"
+        elif flag["type"] == "model_change":
+            severity = "warning"
+        elif flag["type"] == "prompt_change":
+            severity = "info"
+
+        alerts.append({
+            "severity": severity,
+            "type": flag["type"],
+            "message": flag["message"],
+        })
+
+    # Build latency object
+    lat = analysis.get("latency", {})
+    current_lat = lat.get("current", {})
+    previous_lat = lat.get("previous", {})
+
+    p95_change_pct = 0.0
+    if previous_lat.get("p95", 0) > 0:
+        p95_change_pct = ((current_lat.get("p95", 0) - previous_lat.get("p95", 0)) / previous_lat["p95"]) * 100
+
+    latency = {
+        "p50": current_lat.get("p50", 0.0),
+        "p95": current_lat.get("p95", 0.0),
+        "p99": current_lat.get("p99", 0.0),
+        "prev_p50": previous_lat.get("p50", 0.0),
+        "prev_p95": previous_lat.get("p95", 0.0),
+        "prev_p99": previous_lat.get("p99", 0.0),
+        "p95_change_pct": p95_change_pct,
     }
+
+    # Build cost object
+    cost_data = analysis.get("cost", {})
+    cost = {
+        "total_tokens": cost_data.get("total_tokens", 0),
+        "estimated_usd": cost_data.get("estimated_cost", 0.0),
+        "per_run_usd": cost_data.get("cost_per_run", 0.0),
+        "primary_model": cost_data.get("primary_model", "unknown"),
+    }
+
+    # Build volume object with previous error rate
+    vol = analysis.get("volume", {})
+    # Calculate previous error rate from the analysis context
+    # This requires looking at the flags for error_rate_increase info
+    prev_error_rate = 0.0
+    for flag in analysis.get("flags", []):
+        if flag["type"] == "error_rate_increase":
+            # Parse from message like "Error rate increased X.Xpp (Y.Y% → Z.Z%)"
+            msg = flag["message"]
+            if "→" in msg and "%" in msg:
+                try:
+                    prev_part = msg.split("(")[1].split("→")[0].strip().rstrip("%")
+                    prev_error_rate = float(prev_part)
+                except (IndexError, ValueError):
+                    pass
+            break
+
+    volume = {
+        "total": vol.get("total_runs", 0),
+        "errors": vol.get("errors", 0),
+        "error_rate_pct": vol.get("error_rate", 0.0),
+        "prev_error_rate_pct": prev_error_rate,
+    }
+
+    # Build changes object
+    changes = {
+        "prompts": analysis.get("prompt_changes", []),
+        "models": analysis.get("model_changes", []),
+    }
+
+    # Build errors object with top patterns
+    error_patterns = analysis.get("error_patterns", [])
+    total_errors = vol.get("errors", 0)
+    top_patterns = []
+    for error_msg, count in error_patterns:
+        pct = (count / total_errors * 100) if total_errors > 0 else 0.0
+        top_patterns.append({
+            "message": error_msg,
+            "count": count,
+            "pct": pct,
+        })
+
+    errors = {
+        "top_patterns": top_patterns,
+    }
+
+    # Build final report with standardized schema
+    report = {
+        "meta": {
+            "project": project,
+            "window_days": days,
+            "generated_at": now.isoformat(),
+        },
+        "alerts": alerts,
+        "latency": latency,
+        "cost": cost,
+        "volume": volume,
+        "changes": changes,
+        "errors": errors,
+    }
+
     return json.dumps(report, indent=2, default=str)
 
 
 def main():
+    global MODEL_COSTS
+
     parser = argparse.ArgumentParser(
         description="TraceIQ - LangSmith Agent Trace Analysis",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -544,6 +731,9 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Load cost model configuration
+    MODEL_COSTS = load_cost_model()
 
     # Load runs from mock data or API
     if args.mock_data:
