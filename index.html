@@ -1302,6 +1302,58 @@ document.querySelectorAll('.time-btn').forEach(btn => {
 // ── Report Loading & Dynamic Data Engine ──
 // ═══════════════════════════════════════════
 
+// ── Auto-load analysis_output.json on page start ──
+document.addEventListener('DOMContentLoaded', function() {
+  fetch('analysis_output.json')
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(data) { if (data) applyReportData(data, 'analysis_output.json'); })
+    .catch(function() {}); // silently fall back to demo data if file missing
+});
+
+// ── Schema normalizer: maps engine v1 output → dashboard expected fields ──
+function normalizeEngineData(data) {
+  var d = JSON.parse(JSON.stringify(data)); // deep clone
+
+  // volume: error_rate_pct → error_rate
+  if (d.volume && d.volume.error_rate_pct !== undefined && d.volume.error_rate === undefined) {
+    d.volume.error_rate = d.volume.error_rate_pct;
+  }
+
+  // cost: estimated_usd → estimated_cost
+  if (d.cost && d.cost.estimated_usd !== undefined && d.cost.estimated_cost === undefined) {
+    d.cost.estimated_cost = d.cost.estimated_usd;
+  }
+
+  // latency: flat keys → nested current/previous
+  if (d.latency && !d.latency.current) {
+    var lat = d.latency;
+    d.latency = {
+      current:  { p50: lat.p50,      p95: lat.p95,      p99: lat.p99      },
+      previous: { p50: lat.prev_p50, p95: lat.prev_p95, p99: lat.prev_p99 },
+      p95_change_pct: lat.p95_change_pct
+    };
+  }
+
+  // changes → models / prompts (engine uses data.changes.models / data.changes.prompts)
+  if (d.changes && !d.models) {
+    d.models = {
+      changes: (d.changes.models || []).map(function(c) {
+        return { date: c.date, from: c.from_model, to: c.to_model };
+      })
+    };
+  }
+  if (d.changes && !d.prompts) {
+    d.prompts = { changes: d.changes.prompts || [] };
+  }
+
+  // errors: top_patterns → patterns
+  if (d.errors && d.errors.top_patterns !== undefined && d.errors.patterns === undefined) {
+    d.errors.patterns = d.errors.top_patterns;
+  }
+
+  return d;
+}
+
 function handleReportLoad(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -1359,7 +1411,8 @@ function formatNumber(n) {
   return String(n);
 }
 
-function applyReportData(data, filename) {
+function applyReportData(rawData, filename) {
+  const data = normalizeEngineData(rawData);
   // ── Update data mode badge ──
   const badge = document.getElementById('dataModeBadge');
   badge.className = 'data-mode-badge live';
