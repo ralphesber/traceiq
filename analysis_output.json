@@ -1,0 +1,88 @@
+{
+  "meta": {
+    "project": "demo-agent",
+    "window_days": 7,
+    "generated_at": "2026-03-09T20:51:45.554044+00:00"
+  },
+  "alerts": [
+    {
+      "type": "latency_regression",
+      "severity": "critical",
+      "message": "p95 latency increased 40% (1.8s \u2192 2.6s)"
+    },
+    {
+      "type": "model_change",
+      "severity": "warning",
+      "message": "Model changed on 2026-03-07: gpt-4o \u2192 gpt-4o-mini"
+    }
+  ],
+  "volume": {
+    "total": 1247,
+    "errors": 107,
+    "error_rate": 8.6
+  },
+  "latency": {
+    "current": {
+      "p50": 1.4484805,
+      "p95": 2.550050800000001,
+      "p99": 6.5533761499999965
+    },
+    "previous": {
+      "p50": 0.809815,
+      "p95": 1.821107599999999,
+      "p99": 3.35919276
+    }
+  },
+  "cost": {
+    "total_tokens": 1704665,
+    "estimated_cost": 12.78,
+    "primary_model": "gpt-4o"
+  },
+  "prompts": {
+    "changes": [
+      {
+        "date": "2026-03-05",
+        "from": "2abbd094",
+        "to": "257ca5dc"
+      }
+    ]
+  },
+  "models": {
+    "changes": [
+      {
+        "date": "2026-03-07",
+        "from": "gpt-4o",
+        "to": "gpt-4o-mini"
+      }
+    ]
+  },
+  "errors": {
+    "patterns": [
+      {
+        "message": "Context length exceeded",
+        "count": 44,
+        "pct": 41.1
+      },
+      {
+        "message": "Timeout",
+        "count": 30,
+        "pct": 28.0
+      },
+      {
+        "message": "Tool call parsing error",
+        "count": 25,
+        "pct": 23.4
+      },
+      {
+        "message": "Rate limit exceeded",
+        "count": 5,
+        "pct": 4.7
+      },
+      {
+        "message": "Invalid response format",
+        "count": 3,
+        "pct": 2.8
+      }
+    ]
+  }
+}

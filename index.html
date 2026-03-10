@@ -1,0 +1,1623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TraceIQ — AI Trace Analysis Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<style>
+  :root {
+    --bg-primary: #0a0a0b;
+    --bg-secondary: #111113;
+    --bg-card: #16161a;
+    --bg-card-hover: #1c1c21;
+    --border: #27272a;
+    --border-subtle: #1e1e22;
+    --text-primary: #fafafa;
+    --text-secondary: #a1a1aa;
+    --text-muted: #71717a;
+    --accent: #6366f1;
+    --accent-light: #818cf8;
+    --accent-glow: rgba(99, 102, 241, 0.15);
+    --green: #22c55e;
+    --green-muted: rgba(34, 197, 94, 0.12);
+    --red: #ef4444;
+    --red-muted: rgba(239, 68, 68, 0.12);
+    --orange: #f59e0b;
+    --orange-muted: rgba(245, 158, 11, 0.12);
+    --yellow: #eab308;
+    --cyan: #06b6d4;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --radius-xs: 6px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+    --shadow-lg: 0 10px 40px rgba(0,0,0,0.4);
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* Header */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10, 10, 11, 0.8);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 0 32px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, var(--accent), #a855f7);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .tagline {
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 400;
+    padding-left: 20px;
+    border-left: 1px solid var(--border);
+    display: none;
+  }
+
+  @media (min-width: 768px) {
+    .tagline { display: block; }
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .btn {
+    padding: 7px 14px;
+    border-radius: var(--radius-xs);
+    font-size: 13px;
+    font-weight: 500;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+    border-color: #3f3f46;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: var(--accent-light);
+    border-color: var(--accent-light);
+  }
+
+  .connect-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+  }
+
+  /* Nav tabs */
+  .nav-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 0 32px;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .nav-tab {
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+  }
+
+  .nav-tab:hover { color: var(--text-secondary); }
+  .nav-tab.active {
+    color: var(--text-primary);
+    border-bottom-color: var(--accent);
+  }
+
+  /* Main */
+  .main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 28px 32px 60px;
+  }
+
+  /* Page header */
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .page-title {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .page-subtitle {
+    color: var(--text-muted);
+    font-size: 14px;
+    margin-top: 4px;
+  }
+
+  .time-range {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+  }
+
+  .time-btn {
+    padding: 5px 12px;
+    border-radius: var(--radius-xs);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    font-family: var(--font);
+    transition: all 0.15s;
+  }
+
+  .time-btn:hover { color: var(--text-secondary); }
+  .time-btn.active {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+    box-shadow: var(--shadow);
+  }
+
+  /* Overview cards */
+  .overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    transition: all 0.2s;
+  }
+
+  .stat-card:hover {
+    border-color: var(--border);
+    background: var(--bg-card-hover);
+  }
+
+  .stat-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    line-height: 1.1;
+  }
+
+  .stat-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    margin-top: 8px;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+
+  .stat-change.up {
+    color: var(--green);
+    background: var(--green-muted);
+  }
+
+  .stat-change.down {
+    color: var(--red);
+    background: var(--red-muted);
+  }
+
+  .stat-change.warn {
+    color: var(--orange);
+    background: var(--orange-muted);
+  }
+
+  /* Health score */
+  .health-score {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .health-ring {
+    width: 56px;
+    height: 56px;
+    position: relative;
+  }
+
+  .health-ring svg {
+    width: 56px;
+    height: 56px;
+    transform: rotate(-90deg);
+  }
+
+  .health-ring-bg {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 4;
+  }
+
+  .health-ring-fill {
+    fill: none;
+    stroke-width: 4;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s ease;
+  }
+
+  .health-number {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -1.5px;
+  }
+
+  .health-label {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  /* Grid layout */
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 1024px) {
+    .dashboard-grid { grid-template-columns: 1fr; }
+  }
+
+  .full-width { grid-column: 1 / -1; }
+
+  /* Card */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .card:hover { border-color: var(--border); }
+
+  .card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 20px 24px 0;
+    gap: 12px;
+  }
+
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .card-body {
+    padding: 16px 24px 20px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+
+  .badge-red {
+    background: var(--red-muted);
+    color: var(--red);
+  }
+
+  .badge-orange {
+    background: var(--orange-muted);
+    color: var(--orange);
+  }
+
+  .badge-green {
+    background: var(--green-muted);
+    color: var(--green);
+  }
+
+  /* Alert banner */
+  .alert-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  .alert-banner.critical {
+    background: var(--red-muted);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+  }
+
+  .alert-banner.warning {
+    background: var(--orange-muted);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    color: #fcd34d;
+  }
+
+  .alert-icon { font-size: 16px; flex-shrink: 0; }
+
+  /* Chart container */
+  .chart-wrap {
+    position: relative;
+    height: 220px;
+  }
+
+  /* Annotation callout */
+  .annotation-callout {
+    position: absolute;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    font-size: 12px;
+    max-width: 260px;
+    z-index: 10;
+    box-shadow: var(--shadow-lg);
+    pointer-events: none;
+  }
+
+  .annotation-callout .callout-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .annotation-callout .callout-body {
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  /* Diff view */
+  .diff-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+  }
+
+  @media (max-width: 768px) {
+    .diff-container { grid-template-columns: 1fr; }
+  }
+
+  .diff-panel {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+
+  .diff-panel-header {
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .diff-content {
+    padding: 14px;
+    overflow-x: auto;
+  }
+
+  .diff-line {
+    padding: 2px 4px;
+    border-radius: 3px;
+  }
+
+  .diff-removed {
+    background: rgba(239, 68, 68, 0.1);
+    color: #fca5a5;
+    text-decoration: line-through;
+    text-decoration-color: rgba(252,165,165,0.3);
+  }
+
+  .diff-added {
+    background: rgba(34, 197, 94, 0.1);
+    color: #86efac;
+  }
+
+  .diff-unchanged {
+    color: var(--text-muted);
+  }
+
+  /* Impact metrics */
+  .impact-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .impact-item {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    text-align: center;
+  }
+
+  .impact-value {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .impact-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* Weekly report */
+  .report-preview {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 24px;
+  }
+
+  .report-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .report-title {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .report-date {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .report-section {
+    margin-bottom: 16px;
+  }
+
+  .report-section:last-child { margin-bottom: 0; }
+
+  .report-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  .report-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .report-item:last-child { border-bottom: none; }
+
+  .report-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .report-icon.red { background: var(--red-muted); }
+  .report-icon.orange { background: var(--orange-muted); }
+  .report-icon.green { background: var(--green-muted); }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 40px 32px;
+    color: var(--text-muted);
+    font-size: 12px;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .footer a {
+    color: var(--accent-light);
+    text-decoration: none;
+  }
+
+  /* Animations */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-in {
+    animation: fadeInUp 0.4s ease forwards;
+    opacity: 0;
+  }
+
+  .delay-1 { animation-delay: 0.05s; }
+  .delay-2 { animation-delay: 0.1s; }
+  .delay-3 { animation-delay: 0.15s; }
+  .delay-4 { animation-delay: 0.2s; }
+  .delay-5 { animation-delay: 0.25s; }
+  .delay-6 { animation-delay: 0.3s; }
+  .delay-7 { animation-delay: 0.35s; }
+  .delay-8 { animation-delay: 0.4s; }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .header { padding: 0 16px; }
+    .main { padding: 20px 16px 40px; }
+    .nav-tabs { padding: 0 16px; overflow-x: auto; }
+    .stat-value { font-size: 26px; }
+    .health-number { font-size: 28px; }
+    .impact-grid { grid-template-columns: 1fr; }
+    .overview-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* Pulse dot */
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .pulse { animation: pulse 2s infinite; }
+
+  /* Data mode badge */
+  .data-mode-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    transition: all 0.3s ease;
+  }
+
+  .data-mode-badge.demo {
+    background: rgba(113, 113, 122, 0.15);
+    color: #a1a1aa;
+    border: 1px solid rgba(113, 113, 122, 0.2);
+  }
+
+  .data-mode-badge.live {
+    background: rgba(34, 197, 94, 0.12);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.25);
+  }
+
+  /* Tooltip style for chart annotations handled inline */
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-left">
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      TraceIQ
+    </div>
+    <span class="tagline">Your AI agents are breaking. We catch it before your users do.</span>
+  </div>
+  <div class="header-right">
+    <span id="dataModeBadge" class="data-mode-badge demo">● Demo Data</span>
+    <button class="btn" onclick="void(0)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      Connect LangSmith
+    </button>
+    <button class="btn" onclick="void(0)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      Connect Langfuse
+    </button>
+    <button class="btn" onclick="document.getElementById('reportFileInput').click()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+      Load Report
+    </button>
+    <input type="file" id="reportFileInput" accept=".json" style="display:none" onchange="handleReportLoad(event)">
+    <button class="btn btn-primary" onclick="void(0)">
+      <div class="connect-dot"></div>
+      Live
+    </button>
+  </div>
+</header>
+
+<!-- Nav -->
+<nav class="nav-tabs">
+  <div class="nav-tab active">Overview</div>
+  <div class="nav-tab">Traces</div>
+  <div class="nav-tab">Prompts</div>
+  <div class="nav-tab">Cost</div>
+  <div class="nav-tab">Alerts</div>
+  <div class="nav-tab">Reports</div>
+</nav>
+
+<!-- Main content -->
+<main class="main">
+  <!-- Page header -->
+  <div class="page-header animate-in delay-1">
+    <div>
+      <h1 class="page-title">Dashboard</h1>
+      <p class="page-subtitle" id="pageSubtitle">Monitoring 3 agents across 2 environments · Last sync 2 min ago</p>
+    </div>
+    <div class="time-range">
+      <button class="time-btn">24h</button>
+      <button class="time-btn active">7d</button>
+      <button class="time-btn">30d</button>
+      <button class="time-btn">90d</button>
+    </div>
+  </div>
+
+  <!-- Alert banner -->
+  <div id="alertBanner" class="alert-banner critical animate-in delay-2">
+    <span class="alert-icon">🔴</span>
+    <span><strong>Critical:</strong> Prompt regression detected in <code style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;font-size:12px;">customer-support-agent v2.3</code> — accuracy dropped 12% on ambiguous queries since March 5</span>
+  </div>
+
+  <!-- Overview stats -->
+  <div id="overviewGrid" class="overview-grid animate-in delay-3">
+    <div class="stat-card">
+      <div class="stat-label">Total Traces (7d)</div>
+      <div class="stat-value" id="statTraces">847,293</div>
+      <div class="stat-change up" id="statTracesChange">↑ 12.3% vs last week</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Issues Detected</div>
+      <div class="stat-value" style="color: var(--red);" id="statIssues">14</div>
+      <div class="stat-change down" id="statIssuesChange">↑ 5 new this week</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Cost (7d)</div>
+      <div class="stat-value" id="statCost">$2,847</div>
+      <div class="stat-change warn" id="statCostChange">↑ 34% — anomaly flagged</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Agent Health Score</div>
+      <div class="health-score">
+        <div class="health-ring">
+          <svg viewBox="0 0 56 56">
+            <circle class="health-ring-bg" cx="28" cy="28" r="24"/>
+            <circle id="healthRingFill" class="health-ring-fill" cx="28" cy="28" r="24"
+              stroke="var(--orange)"
+              stroke-dasharray="150.8"
+              stroke-dashoffset="37.7"/>
+          </svg>
+        </div>
+        <div>
+          <div class="health-number" id="healthNumber" style="color: var(--orange);">72</div>
+          <div class="health-label" id="healthLabel">Needs attention</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts row -->
+  <div class="dashboard-grid animate-in delay-4">
+
+    <!-- Regression Detection -->
+    <div class="card" id="regressionCard">
+      <div class="card-header">
+        <div>
+          <div class="card-title">
+            📉 Regression Detection
+          </div>
+          <div class="card-subtitle" id="regressionSubtitle">Prompt accuracy by version over time</div>
+        </div>
+        <span class="badge badge-red" id="regressionBadge">● 1 regression</span>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap">
+          <canvas id="regressionChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cost Anomalies -->
+    <div class="card" id="costCard">
+      <div class="card-header">
+        <div>
+          <div class="card-title">
+            💰 Cost Analysis
+          </div>
+          <div class="card-subtitle" id="costSubtitle">Daily token spend across all agents</div>
+        </div>
+        <span class="badge badge-orange" id="costBadge">● anomaly detected</span>
+      </div>
+      <div class="card-body" id="costBody">
+        <div class="chart-wrap">
+          <canvas id="costChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Latency -->
+  <div class="dashboard-grid animate-in delay-5">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">⚡ Latency Tracking</div>
+          <div class="card-subtitle">P50 / P95 / P99 response times (ms)</div>
+        </div>
+        <span class="badge badge-green">● within SLA</span>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap">
+          <canvas id="latencyChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Prompt Drift -->
+    <div class="card" id="promptDriftCard">
+      <div class="card-header">
+        <div>
+          <div class="card-title">🔀 Prompt Drift Alert</div>
+          <div class="card-subtitle" id="promptDriftSubtitle">Detected config change with negative impact</div>
+        </div>
+        <span class="badge badge-red" id="promptDriftBadge">● action required</span>
+      </div>
+      <div class="card-body" id="promptDriftBody">
+        <div class="diff-container">
+          <div class="diff-panel">
+            <div class="diff-panel-header">
+              <span>Before · Feb 28</span>
+              <span style="color: var(--green);">v2.2</span>
+            </div>
+            <div class="diff-content">
+              <div class="diff-line diff-unchanged">system_prompt: "You are a helpful</div>
+              <div class="diff-line diff-unchanged">&nbsp;&nbsp;customer support agent..."</div>
+              <div class="diff-line diff-removed">temperature: 0.3</div>
+              <div class="diff-line diff-removed">max_tokens: 512</div>
+              <div class="diff-line diff-unchanged">model: gpt-4-turbo</div>
+              <div class="diff-line diff-unchanged">top_p: 0.95</div>
+            </div>
+          </div>
+          <div class="diff-panel">
+            <div class="diff-panel-header">
+              <span>After · Mar 1</span>
+              <span style="color: var(--red);">v2.3</span>
+            </div>
+            <div class="diff-content">
+              <div class="diff-line diff-unchanged">system_prompt: "You are a helpful</div>
+              <div class="diff-line diff-unchanged">&nbsp;&nbsp;customer support agent..."</div>
+              <div class="diff-line diff-added">temperature: 0.7</div>
+              <div class="diff-line diff-added">max_tokens: 1024</div>
+              <div class="diff-line diff-unchanged">model: gpt-4-turbo</div>
+              <div class="diff-line diff-unchanged">top_p: 0.95</div>
+            </div>
+          </div>
+        </div>
+        <div class="impact-grid">
+          <div class="impact-item">
+            <div class="impact-value" style="color: var(--red);">+23%</div>
+            <div class="impact-label">Hallucination rate</div>
+          </div>
+          <div class="impact-item">
+            <div class="impact-value" style="color: var(--red);">-12%</div>
+            <div class="impact-label">Accuracy score</div>
+          </div>
+          <div class="impact-item">
+            <div class="impact-value" style="color: var(--orange);">+41%</div>
+            <div class="impact-label">Token usage</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Weekly Report / Error Patterns -->
+  <div class="dashboard-grid animate-in delay-6">
+    <div class="card full-width" id="weeklyReportCard">
+      <div class="card-header">
+        <div>
+          <div class="card-title">📊 Weekly Report Preview</div>
+          <div class="card-subtitle">Auto-generated report for stakeholders · Delivered every Monday at 9am</div>
+        </div>
+        <button class="btn" style="font-size: 12px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          Send to Slack
+        </button>
+      </div>
+      <div class="card-body">
+        <div class="report-preview">
+          <div class="report-header">
+            <div>
+              <div class="report-title">TraceIQ Weekly Report — March 3–9, 2026</div>
+              <div class="report-date" style="margin-top:4px;">3 agents · 2 environments · 847,293 traces analyzed</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size:32px; font-weight:700; color: var(--orange); letter-spacing:-1px;">72</div>
+              <div style="font-size:11px; color: var(--text-muted);">Health Score</div>
+            </div>
+          </div>
+
+          <div class="report-section">
+            <div class="report-section-title">🚨 Critical Issues (2)</div>
+            <div class="report-item">
+              <div class="report-icon red">!</div>
+              <div><strong style="color: var(--text-primary);">Prompt regression in customer-support-agent v2.3</strong> — Accuracy dropped 12% on ambiguous queries after temperature change (0.3→0.7). Hallucination rate increased 23%. <em>Recommendation: Roll back to v2.2 or reduce temperature to 0.4.</em></div>
+            </div>
+            <div class="report-item">
+              <div class="report-icon red">!</div>
+              <div><strong style="color: var(--text-primary);">Cost anomaly on March 6</strong> — Daily spend spiked to $847 (3.2× average) after classification pipeline switched to GPT-4. <em>Recommendation: Evaluate GPT-3.5-turbo for classification — accuracy delta is only 2%.</em></div>
+            </div>
+          </div>
+
+          <div class="report-section">
+            <div class="report-section-title">⚠️ Warnings (3)</div>
+            <div class="report-item">
+              <div class="report-icon orange">⚠</div>
+              <div><strong style="color: var(--text-primary);">P99 latency approaching SLA threshold</strong> — Currently at 4.2s vs 5s limit. Trending upward since March 4. Monitor closely.</div>
+            </div>
+            <div class="report-item">
+              <div class="report-icon orange">⚠</div>
+              <div><strong style="color: var(--text-primary);">Embedding drift detected in RAG pipeline</strong> — Cosine similarity between query embeddings and retrieved chunks dropped 8% on product-related queries.</div>
+            </div>
+            <div class="report-item">
+              <div class="report-icon orange">⚠</div>
+              <div><strong style="color: var(--text-primary);">Token budget trending 18% over forecast</strong> — At current rate, monthly spend will be ~$12,400 vs $10,500 budget.</div>
+            </div>
+          </div>
+
+          <div class="report-section">
+            <div class="report-section-title">✅ What's Working</div>
+            <div class="report-item">
+              <div class="report-icon green">✓</div>
+              <div><strong style="color: var(--text-primary);">Order tracking agent</strong> performing at 96.2% accuracy — best in class. Zero regressions in 4 weeks.</div>
+            </div>
+            <div class="report-item">
+              <div class="report-icon green">✓</div>
+              <div><strong style="color: var(--text-primary);">Latency P50 stable at 1.1s</strong> — well within 2s target. Infrastructure changes from last sprint are paying off.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Footer -->
+<footer class="footer">
+  TraceIQ · AI Trace Analysis · Built for teams shipping AI in production
+</footer>
+
+<script>
+// Chart.js defaults for dark theme
+Chart.defaults.color = '#71717a';
+Chart.defaults.borderColor = 'rgba(39, 39, 42, 0.5)';
+Chart.defaults.font.family = "'Inter', -apple-system, sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.plugins.legend.labels.boxWidth = 12;
+Chart.defaults.plugins.legend.labels.boxHeight = 2;
+Chart.defaults.plugins.legend.labels.padding = 16;
+Chart.defaults.elements.point.radius = 0;
+Chart.defaults.elements.point.hoverRadius = 4;
+Chart.defaults.elements.line.tension = 0.35;
+Chart.defaults.elements.line.borderWidth = 2;
+
+const days = ['Feb 25', 'Feb 26', 'Feb 27', 'Feb 28', 'Mar 1', 'Mar 2', 'Mar 3', 'Mar 4', 'Mar 5', 'Mar 6', 'Mar 7', 'Mar 8', 'Mar 9'];
+
+// Store chart instances for later destruction
+let regressionChartInstance, costChartInstance, latencyChartInstance;
+
+// ── Regression Chart ──
+regressionChartInstance = new Chart(document.getElementById('regressionChart'), {
+  type: 'line',
+  data: {
+    labels: days,
+    datasets: [{
+      label: 'Accuracy %',
+      data: [94.2, 94.5, 93.8, 94.1, 93.9, 92.1, 88.3, 84.7, 82.1, 82.4, 81.9, 82.3, 82.0],
+      borderColor: '#6366f1',
+      backgroundColor: 'rgba(99, 102, 241, 0.08)',
+      fill: true,
+      pointRadius: [0,0,0,0,2,2,2,2,2,0,0,0,0],
+      pointBackgroundColor: function(ctx) {
+        return ctx.dataIndex >= 4 && ctx.dataIndex <= 8 ? '#ef4444' : '#6366f1';
+      },
+      pointBorderColor: function(ctx) {
+        return ctx.dataIndex >= 4 && ctx.dataIndex <= 8 ? '#ef4444' : '#6366f1';
+      }
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      annotation: {
+        annotations: {
+          regressionLine: {
+            type: 'line',
+            xMin: 'Mar 1',
+            xMax: 'Mar 1',
+            borderColor: 'rgba(239, 68, 68, 0.5)',
+            borderWidth: 1,
+            borderDash: [4, 4],
+            label: {
+              display: true,
+              content: 'v2.3 deployed',
+              position: 'start',
+              backgroundColor: 'rgba(239, 68, 68, 0.15)',
+              color: '#fca5a5',
+              font: { size: 10, weight: '600' },
+              padding: { top: 4, bottom: 4, left: 8, right: 8 },
+              borderRadius: 4
+            }
+          },
+          regressionZone: {
+            type: 'box',
+            xMin: 'Mar 1',
+            xMax: 'Mar 5',
+            backgroundColor: 'rgba(239, 68, 68, 0.04)',
+            borderWidth: 0
+          }
+        }
+      },
+      tooltip: {
+        backgroundColor: '#16161a',
+        borderColor: '#27272a',
+        borderWidth: 1,
+        titleFont: { weight: '600' },
+        padding: 10,
+        cornerRadius: 8,
+        callbacks: {
+          label: (ctx) => `Accuracy: ${ctx.parsed.y}%`
+        }
+      }
+    },
+    scales: {
+      y: {
+        min: 75,
+        max: 100,
+        grid: { color: 'rgba(39,39,42,0.3)' },
+        ticks: { callback: v => v + '%' }
+      },
+      x: {
+        grid: { display: false },
+        ticks: { maxTicksLimit: 7 }
+      }
+    }
+  }
+});
+
+// ── Cost Chart ──
+costChartInstance = new Chart(document.getElementById('costChart'), {
+  type: 'bar',
+  data: {
+    labels: days,
+    datasets: [{
+      label: 'Daily Spend',
+      data: [245, 261, 238, 252, 287, 310, 342, 378, 412, 847, 395, 368, 352],
+      backgroundColor: function(ctx) {
+        return ctx.dataIndex === 9 ? 'rgba(239, 68, 68, 0.7)' : 'rgba(99, 102, 241, 0.5)';
+      },
+      borderColor: function(ctx) {
+        return ctx.dataIndex === 9 ? '#ef4444' : '#6366f1';
+      },
+      borderWidth: 1,
+      borderRadius: 4,
+      borderSkipped: false
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      annotation: {
+        annotations: {
+          avgLine: {
+            type: 'line',
+            yMin: 265,
+            yMax: 265,
+            borderColor: 'rgba(113, 113, 122, 0.4)',
+            borderWidth: 1,
+            borderDash: [4, 4],
+            label: {
+              display: true,
+              content: 'Avg: $265/day',
+              position: 'start',
+              backgroundColor: 'rgba(113,113,122,0.15)',
+              color: '#a1a1aa',
+              font: { size: 10, weight: '500' },
+              padding: { top: 3, bottom: 3, left: 6, right: 6 },
+              borderRadius: 4
+            }
+          },
+          spikeLabel: {
+            type: 'label',
+            xValue: 'Mar 6',
+            yValue: 847,
+            yAdjust: -16,
+            content: ['$847 — GPT-4 switch'],
+            color: '#fca5a5',
+            font: { size: 10, weight: '600' },
+            backgroundColor: 'rgba(239,68,68,0.12)',
+            padding: { top: 4, bottom: 4, left: 8, right: 8 },
+            borderRadius: 4
+          }
+        }
+      },
+      tooltip: {
+        backgroundColor: '#16161a',
+        borderColor: '#27272a',
+        borderWidth: 1,
+        padding: 10,
+        cornerRadius: 8,
+        callbacks: {
+          label: (ctx) => `Spend: $${ctx.parsed.y}`
+        }
+      }
+    },
+    scales: {
+      y: {
+        grid: { color: 'rgba(39,39,42,0.3)' },
+        ticks: { callback: v => '$' + v }
+      },
+      x: {
+        grid: { display: false },
+        ticks: { maxTicksLimit: 7 }
+      }
+    }
+  }
+});
+
+// ── Latency Chart ──
+latencyChartInstance = new Chart(document.getElementById('latencyChart'), {
+  type: 'line',
+  data: {
+    labels: days,
+    datasets: [
+      {
+        label: 'P50',
+        data: [980, 1020, 1010, 990, 1050, 1080, 1100, 1120, 1090, 1140, 1110, 1100, 1080],
+        borderColor: '#22c55e',
+        backgroundColor: 'rgba(34, 197, 94, 0.05)',
+        fill: false
+      },
+      {
+        label: 'P95',
+        data: [2100, 2200, 2150, 2180, 2400, 2650, 2800, 2950, 3100, 3200, 3050, 3100, 2980],
+        borderColor: '#f59e0b',
+        backgroundColor: 'rgba(245, 158, 11, 0.05)',
+        fill: false
+      },
+      {
+        label: 'P99',
+        data: [3200, 3100, 3300, 3250, 3500, 3700, 3900, 4000, 4100, 4200, 4150, 4180, 4100],
+        borderColor: '#ef4444',
+        backgroundColor: 'rgba(239, 68, 68, 0.05)',
+        fill: false
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top',
+        align: 'end'
+      },
+      annotation: {
+        annotations: {
+          slaLine: {
+            type: 'line',
+            yMin: 5000,
+            yMax: 5000,
+            borderColor: 'rgba(239, 68, 68, 0.4)',
+            borderWidth: 1,
+            borderDash: [6, 4],
+            label: {
+              display: true,
+              content: 'SLA: 5000ms',
+              position: 'end',
+              backgroundColor: 'rgba(239,68,68,0.12)',
+              color: '#fca5a5',
+              font: { size: 10, weight: '600' },
+              padding: { top: 3, bottom: 3, left: 6, right: 6 },
+              borderRadius: 4
+            }
+          }
+        }
+      },
+      tooltip: {
+        backgroundColor: '#16161a',
+        borderColor: '#27272a',
+        borderWidth: 1,
+        padding: 10,
+        cornerRadius: 8,
+        callbacks: {
+          label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y}ms`
+        }
+      }
+    },
+    scales: {
+      y: {
+        min: 0,
+        max: 5500,
+        grid: { color: 'rgba(39,39,42,0.3)' },
+        ticks: { callback: v => v >= 1000 ? (v/1000).toFixed(1) + 's' : v + 'ms' }
+      },
+      x: {
+        grid: { display: false },
+        ticks: { maxTicksLimit: 7 }
+      }
+    }
+  }
+});
+
+// Nav tab interaction
+document.querySelectorAll('.nav-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+  });
+});
+
+// Time range interaction
+document.querySelectorAll('.time-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+// ═══════════════════════════════════════════
+// ── Report Loading & Dynamic Data Engine ──
+// ═══════════════════════════════════════════
+
+function handleReportLoad(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      applyReportData(data, file.name);
+    } catch (err) {
+      alert('Invalid JSON file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  // Reset input so same file can be re-loaded
+  event.target.value = '';
+}
+
+function deriveHealthScore(data) {
+  let score = 100;
+
+  // Subtract for alerts
+  if (data.alerts) {
+    data.alerts.forEach(alert => {
+      if (alert.severity === 'critical') score -= 15;
+      else if (alert.severity === 'warning') score -= 8;
+    });
+  }
+
+  // Subtract if error_rate > 5%
+  if (data.volume && data.volume.error_rate > 5) score -= 10;
+
+  // Subtract if p95 latency > 2s
+  if (data.latency && data.latency.current && data.latency.current.p95 > 2) score -= 5;
+
+  return Math.max(0, Math.min(100, score));
+}
+
+function getHealthColor(score) {
+  if (score >= 80) return 'var(--green)';
+  if (score >= 60) return 'var(--orange)';
+  return 'var(--red)';
+}
+
+function getHealthLabel(score) {
+  if (score >= 90) return 'Excellent';
+  if (score >= 80) return 'Good';
+  if (score >= 60) return 'Needs attention';
+  return 'Critical';
+}
+
+function formatNumber(n) {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return n.toLocaleString();
+  return String(n);
+}
+
+function applyReportData(data, filename) {
+  // ── Update data mode badge ──
+  const badge = document.getElementById('dataModeBadge');
+  badge.className = 'data-mode-badge live';
+  badge.textContent = '● Live Data';
+  badge.title = 'Loaded from: ' + filename;
+
+  // ── Update page subtitle ──
+  const project = data.meta?.project || 'unknown';
+  const window = data.meta?.window_days || 7;
+  const generated = data.meta?.generated_at ? new Date(data.meta.generated_at).toLocaleString() : 'just now';
+  document.getElementById('pageSubtitle').innerHTML =
+    `Project: <strong>${project}</strong> · ${window}-day window · Report generated ${generated}`;
+
+  // ── Update overview cards ──
+  const totalTraces = data.volume?.total || 0;
+  const totalErrors = data.volume?.errors || 0;
+  const errorRate = data.volume?.error_rate || 0;
+  const estimatedCost = data.cost?.estimated_cost || 0;
+  const healthScore = deriveHealthScore(data);
+  const healthColor = getHealthColor(healthScore);
+
+  document.getElementById('statTraces').textContent = formatNumber(totalTraces);
+  document.getElementById('statTracesChange').innerHTML =
+    `<span style="color:var(--text-muted)">${totalErrors} errors · ${errorRate}% error rate</span>`;
+  document.getElementById('statTracesChange').className = 'stat-change';
+  document.getElementById('statTracesChange').style.background = errorRate > 5 ? 'var(--red-muted)' : 'var(--green-muted)';
+  document.getElementById('statTracesChange').style.color = errorRate > 5 ? 'var(--red)' : 'var(--green)';
+  document.getElementById('statTracesChange').textContent = `${totalErrors} errors · ${errorRate}% error rate`;
+
+  document.getElementById('statIssues').textContent = data.alerts?.length || 0;
+  const criticalCount = (data.alerts || []).filter(a => a.severity === 'critical').length;
+  const warningCount = (data.alerts || []).filter(a => a.severity === 'warning').length;
+  document.getElementById('statIssuesChange').className = 'stat-change ' + (criticalCount > 0 ? 'down' : 'warn');
+  document.getElementById('statIssuesChange').textContent = `${criticalCount} critical · ${warningCount} warnings`;
+
+  document.getElementById('statCost').textContent = '$' + estimatedCost.toFixed(2);
+  const model = data.cost?.primary_model || 'unknown';
+  const tokens = data.cost?.total_tokens || 0;
+  document.getElementById('statCostChange').className = 'stat-change';
+  document.getElementById('statCostChange').style.background = 'rgba(99, 102, 241, 0.12)';
+  document.getElementById('statCostChange').style.color = 'var(--accent-light)';
+  document.getElementById('statCostChange').textContent = `${formatNumber(tokens)} tokens · ${model}`;
+
+  // Health score ring
+  const circumference = 2 * Math.PI * 24; // r=24
+  const offset = circumference - (healthScore / 100) * circumference;
+  const ring = document.getElementById('healthRingFill');
+  ring.setAttribute('stroke', healthColor);
+  ring.setAttribute('stroke-dasharray', circumference.toFixed(1));
+  ring.setAttribute('stroke-dashoffset', offset.toFixed(1));
+
+  document.getElementById('healthNumber').textContent = healthScore;
+  document.getElementById('healthNumber').style.color = healthColor;
+  document.getElementById('healthLabel').textContent = getHealthLabel(healthScore);
+
+  // ── Update alert banner ──
+  const alertBanner = document.getElementById('alertBanner');
+  if (data.alerts && data.alerts.length > 0) {
+    const topAlert = data.alerts[0];
+    const isCritical = topAlert.severity === 'critical';
+    alertBanner.className = `alert-banner ${isCritical ? 'critical' : 'warning'} animate-in`;
+    alertBanner.innerHTML = `
+      <span class="alert-icon">${isCritical ? '🔴' : '🟡'}</span>
+      <span><strong>${topAlert.severity.charAt(0).toUpperCase() + topAlert.severity.slice(1)}:</strong> ${topAlert.message}</span>
+    `;
+    if (data.alerts.length > 1) {
+      alertBanner.innerHTML += `<span style="margin-left:auto;font-size:11px;color:var(--text-muted);">+${data.alerts.length - 1} more</span>`;
+    }
+    alertBanner.style.display = 'flex';
+  } else {
+    alertBanner.style.display = 'none';
+  }
+
+  // ── Update regression chart with latency data ──
+  if (data.latency) {
+    if (regressionChartInstance) regressionChartInstance.destroy();
+    const metrics = ['p50', 'p95', 'p99'];
+    const currentData = metrics.map(m => data.latency.current?.[m] || 0);
+    const previousData = metrics.map(m => data.latency.previous?.[m] || 0);
+
+    document.getElementById('regressionSubtitle').textContent = 'Latency comparison: current vs previous period';
+    const hasRegression = currentData.some((v, i) => v > previousData[i] * 1.3);
+    document.getElementById('regressionBadge').className = hasRegression ? 'badge badge-red' : 'badge badge-green';
+    document.getElementById('regressionBadge').textContent = hasRegression ? '● regression detected' : '● stable';
+
+    regressionChartInstance = new Chart(document.getElementById('regressionChart'), {
+      type: 'bar',
+      data: {
+        labels: ['P50', 'P95', 'P99'],
+        datasets: [
+          {
+            label: 'Previous',
+            data: previousData,
+            backgroundColor: 'rgba(99, 102, 241, 0.4)',
+            borderColor: '#6366f1',
+            borderWidth: 1,
+            borderRadius: 6,
+            borderSkipped: false
+          },
+          {
+            label: 'Current',
+            data: currentData,
+            backgroundColor: function(ctx) {
+              const prev = previousData[ctx.dataIndex];
+              const curr = currentData[ctx.dataIndex];
+              return curr > prev * 1.3 ? 'rgba(239, 68, 68, 0.5)' : 'rgba(34, 197, 94, 0.4)';
+            },
+            borderColor: function(ctx) {
+              const prev = previousData[ctx.dataIndex];
+              const curr = currentData[ctx.dataIndex];
+              return curr > prev * 1.3 ? '#ef4444' : '#22c55e';
+            },
+            borderWidth: 1,
+            borderRadius: 6,
+            borderSkipped: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top', align: 'end' },
+          tooltip: {
+            backgroundColor: '#16161a',
+            borderColor: '#27272a',
+            borderWidth: 1,
+            padding: 10,
+            cornerRadius: 8,
+            callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}s` }
+          }
+        },
+        scales: {
+          y: {
+            grid: { color: 'rgba(39,39,42,0.3)' },
+            ticks: { callback: v => v.toFixed(1) + 's' }
+          },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  // ── Update cost section ──
+  if (data.cost) {
+    if (costChartInstance) costChartInstance.destroy();
+
+    document.getElementById('costSubtitle').textContent =
+      `${formatNumber(data.cost.total_tokens)} tokens · Primary model: ${data.cost.primary_model}`;
+    document.getElementById('costBadge').className = 'badge badge-green';
+    document.getElementById('costBadge').textContent = `● $${data.cost.estimated_cost.toFixed(2)} total`;
+
+    // Simple breakdown visualization
+    const costBody = document.getElementById('costBody');
+    costBody.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+        <div class="impact-item">
+          <div class="impact-value" style="color:var(--accent-light);">${formatNumber(data.cost.total_tokens)}</div>
+          <div class="impact-label">Total Tokens</div>
+        </div>
+        <div class="impact-item">
+          <div class="impact-value" style="color:var(--green);">$${data.cost.estimated_cost.toFixed(2)}</div>
+          <div class="impact-label">Estimated Cost</div>
+        </div>
+        <div class="impact-item">
+          <div class="impact-value" style="color:var(--cyan);">${data.cost.primary_model}</div>
+          <div class="impact-label">Primary Model</div>
+        </div>
+      </div>
+      ${data.models?.changes?.length ? `
+        <div style="margin-top:16px;padding:12px 14px;background:var(--bg-primary);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:8px;">Model Changes</div>
+          ${data.models.changes.map(c => `
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);padding:6px 0;">
+              <span style="color:var(--text-muted);font-family:var(--mono);font-size:11px;">${c.date}</span>
+              <code style="background:var(--red-muted);color:var(--red);padding:2px 6px;border-radius:4px;font-size:11px;">${c.from}</code>
+              <span style="color:var(--text-muted);">→</span>
+              <code style="background:var(--green-muted);color:var(--green);padding:2px 6px;border-radius:4px;font-size:11px;">${c.to}</code>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+    `;
+  }
+
+  // ── Update prompt drift section ──
+  if (data.prompts?.changes?.length) {
+    document.getElementById('promptDriftSubtitle').textContent =
+      `${data.prompts.changes.length} prompt change(s) detected`;
+    document.getElementById('promptDriftBadge').className =
+      data.prompts.changes.length > 0 ? 'badge badge-orange' : 'badge badge-green';
+    document.getElementById('promptDriftBadge').textContent =
+      `● ${data.prompts.changes.length} change(s)`;
+
+    const driftBody = document.getElementById('promptDriftBody');
+    driftBody.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        ${data.prompts.changes.map(c => `
+          <div style="padding:14px;background:var(--bg-primary);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+              <span style="font-size:12px;color:var(--text-muted);font-family:var(--mono);">${c.date}</span>
+              <span style="font-size:12px;font-weight:600;color:var(--text-primary);">Prompt Hash Changed</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px;">
+              <code style="background:var(--red-muted);color:var(--red);padding:3px 8px;border-radius:4px;font-size:12px;font-family:var(--mono);">${c.from}</code>
+              <span style="color:var(--text-muted);font-size:16px;">→</span>
+              <code style="background:var(--green-muted);color:var(--green);padding:3px 8px;border-radius:4px;font-size:12px;font-family:var(--mono);">${c.to}</code>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  // ── Update weekly report / error patterns ──
+  const reportCard = document.getElementById('weeklyReportCard');
+  if (data.errors?.patterns?.length) {
+    const reportHeader = reportCard.querySelector('.card-header');
+    reportHeader.innerHTML = `
+      <div>
+        <div class="card-title">🐛 Error Patterns</div>
+        <div class="card-subtitle">${data.errors.patterns.length} error pattern(s) identified · ${data.volume?.errors || 0} total errors</div>
+      </div>
+      <span class="badge badge-red">● ${data.errors.patterns.length} pattern(s)</span>
+    `;
+
+    const reportBody = reportCard.querySelector('.card-body');
+    reportBody.innerHTML = `
+      <div class="report-preview">
+        <div class="report-header">
+          <div>
+            <div class="report-title">Error Analysis — ${project}</div>
+            <div class="report-date" style="margin-top:4px;">Error rate: ${errorRate}% · ${totalErrors} errors out of ${totalTraces} traces</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:32px;font-weight:700;color:${errorRate > 5 ? 'var(--red)' : 'var(--green)'};letter-spacing:-1px;">${errorRate}%</div>
+            <div style="font-size:11px;color:var(--text-muted);">Error Rate</div>
+          </div>
+        </div>
+
+        ${data.errors.patterns.map((p, i) => `
+          <div class="report-item">
+            <div class="report-icon red">!</div>
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                <strong style="color:var(--text-primary);font-size:13px;">${p.message}</strong>
+                <span style="font-size:12px;color:var(--text-muted);white-space:nowrap;">${p.count} occurrences · ${p.pct}%</span>
+              </div>
+              <div style="margin-top:8px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;">
+                <div style="height:100%;width:${p.pct}%;background:var(--red);border-radius:2px;"></div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+}
+</script>
+</body>
+</html>
