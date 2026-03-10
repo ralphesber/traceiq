@@ -1,0 +1,178 @@
+{
+  "generated_at": "2026-03-10T22:30:00Z",
+  "project": "autograding_production",
+  "headline": "Agent is mostly stable but accuracy dipped after the March 5 model switch from gpt-5.2-pro to gpt-5.2",
+  "trace_count_analyzed": 47,
+  "insights": {
+    "working": [
+      {
+        "summary": "Multiple choice grading is consistently accurate — 96% agreement with teacher marks across 180+ submissions",
+        "trace_ids": ["tr_001", "tr_002", "tr_003"],
+        "since": "2026-02-28T00:00:00Z"
+      },
+      {
+        "summary": "Response times are well within SLA — P50 at 1.2s, P95 at 2.8s, no degradation trend",
+        "trace_ids": ["tr_004", "tr_005"],
+        "since": "2026-03-01T00:00:00Z"
+      }
+    ],
+    "broken": [
+      {
+        "summary": "Open-ended questions are being overscored — agent gives full marks on partial answers 23% of the time, up from 14% before the model switch",
+        "severity": "high",
+        "trace_ids": ["tr_010", "tr_011", "tr_012", "tr_013", "tr_014"],
+        "since": "2026-03-05T00:00:00Z"
+      },
+      {
+        "summary": "Partial credit scoring is inconsistent — same quality answers get different scores depending on question order in the batch",
+        "severity": "medium",
+        "trace_ids": ["tr_020", "tr_021", "tr_022"],
+        "since": "2026-03-03T00:00:00Z"
+      }
+    ],
+    "changed": [
+      {
+        "summary": "Model switched from gpt-5.2-pro to gpt-5.2 on March 5 — cost dropped 40% but accuracy on complex questions dropped ~9%",
+        "trace_ids": ["tr_030", "tr_031", "tr_032"],
+        "direction": "worse",
+        "since": "2026-03-05T00:00:00Z"
+      },
+      {
+        "summary": "Error rate improved — timeout errors dropped from 3.2% to 0.8% after the March 3 retry logic update",
+        "trace_ids": ["tr_040", "tr_041"],
+        "direction": "better",
+        "since": "2026-03-03T00:00:00Z"
+      }
+    ]
+  },
+  "traces": {
+    "tr_001": {
+      "input_snippet": "Q: What is the capital of France? Student answer: Paris",
+      "output_snippet": "Score: 10/10. Correct — Paris is the capital of France.",
+      "url": "https://smith.langchain.com/o/org123/projects/p/autograding_production/r/tr_001",
+      "timestamp": "2026-03-10T14:22:00Z",
+      "status": "success"
+    },
+    "tr_002": {
+      "input_snippet": "Q: List 3 causes of WWI. Student answer: Assassination of Archduke, alliances, militarism",
+      "output_snippet": "Score: 10/10. All three causes correctly identified.",
+      "url": "https://smith.langchain.com/o/org123/projects/p/autograding_production/r/tr_002",
+      "timestamp": "2026-03-10T14:25:00Z",
+      "status": "success"
+    },
+    "tr_003": {
+      "input_snippet": "Q: What is 2+2? Student answer: 4",
+      "output_snippet": "Score: 10/10. Correct.",
+      "url": "https://smith.langchain.com/o/org123/projects/p/autograding_production/r/tr_003",
+      "timestamp": "2026-03-10T13:10:00Z",
+      "status": "success"
+    },
+    "tr_004": {
+      "input_snippet": "Q: Explain photosynthesis. Student answer: Plants use sunlight to make food...",
+      "output_snippet": "Score: 8/10. Good explanation, missing detail on chlorophyll role.",
+      "url": "https://smith.langchain.com/o/org123/projects/p/autograding_production/r/tr_004",
+      "timestamp": "2026-03-10T12:45:00Z",
+      "status": "success"
+    },
+    "tr_005": {
+      "input_snippet": "Q: Solve for x: 3x + 7 = 22. Student answer: x = 5",
+      "output_snippet": "Score: 10/10. Correct calculation.",
+      "url": "https://smith.langchain.com/o/org123/projects/p/autograding_production/r/tr_005",
+      "timestamp": "2026-03-10T11:30:00Z",
+      "status": "success"
+    },
+    "tr_010": {
+      "input_snippet": "Q: Discuss the impact of the Industrial Revolution on society (10 marks). Student answer: The Industrial Revolution changed how people worked. Factories were built.",
+      "output_snippet": "Score: 10/10. Student demonstrates understanding of industrial impact.",
+      "url": "https://smith.langchain.com/o/org123/projects/p/autograding_production/r/tr_010",
+      "timestamp": "2026-03-10T10:15:00Z",
+      "status": "success"
+    },
+    "tr_011": {
+      "input_snippet": "Q: Analyze the themes of power in Macbeth (10 marks). Student answer: Macbeth wanted power and killed the king.",
+      "output_snippet": "Score: 9/10. Strong thematic analysis showing understanding of ambition.",
+      "url": "https://smith.langchain.com/o/org123/projects/p/autograding_production/r/tr_011",
+      "timestamp": "2026-03-10T09:50:00Z",
+      "status": "success"
+    },
+    "tr_012": {
+      "input_snippet": "Q: Evaluate the effectiveness of the Treaty of Versailles (10 marks). Student answer: It ended WWI.",
+      "output_snippet": "Score: 8/10. Shows awareness of the treaty's purpose.",
+      "url": "https://smith.langchain.com/o/org123/projects/p/autograding_production/r/tr_012",
+      "timestamp": "2026-03-09T16:30:00Z",
+      "status": "success"
+    },
+    "tr_013": {
+      "input_snippet": "Q: Compare and contrast mitosis and meiosis (10 marks). Student answer: Both are cell division. Mitosis makes 2 cells.",
+      "output_snippet": "Score: 10/10. Comprehensive comparison of cell division processes.",
+      "url": "https://smith.langchain.com/o/org123/projects/p/autograding_production/r/tr_013",
+      "timestamp": "2026-03-09T15:20:00Z",
+      "status": "success"
+    },
+    "tr_014": {
+      "input_snippet": "Q: Critically assess the role of NATO in modern geopolitics (10 marks). Student answer: NATO is a military alliance.",
+      "output_snippet": "Score: 8/10. Demonstrates foundational knowledge of NATO's role.",
+      "url": "https://smith.langchain.com/o/org123/projects/p/autograding_production/r/tr_014",
+      "timestamp": "2026-03-09T14:10:00Z",
+      "status": "success"
+    },
+    "tr_020": {
+      "input_snippet": "Q: Explain partial credit example A. Student answer: partial response...",
+      "output_snippet": "Score: 7/10.",
+      "url": "https://smith.langchain.com/o/org123/projects/p/autograding_production/r/tr_020",
+      "timestamp": "2026-03-09T13:00:00Z",
+      "status": "success"
+    },
+    "tr_021": {
+      "input_snippet": "Q: Explain partial credit example A. Student answer: partial response... (same quality, different batch position)",
+      "output_snippet": "Score: 4/10.",
+      "url": "https://smith.langchain.com/o/org123/projects/p/autograding_production/r/tr_021",
+      "timestamp": "2026-03-09T13:05:00Z",
+      "status": "success"
+    },
+    "tr_022": {
+      "input_snippet": "Q: Explain partial credit example B. Student answer: decent attempt...",
+      "output_snippet": "Score: 9/10 (first in batch) vs 5/10 (last in batch) for equivalent quality.",
+      "url": "https://smith.langchain.com/o/org123/projects/p/autograding_production/r/tr_022",
+      "timestamp": "2026-03-08T11:00:00Z",
+      "status": "success"
+    },
+    "tr_030": {
+      "input_snippet": "Complex essay question graded by gpt-5.2-pro",
+      "output_snippet": "Score: 6/10. Nuanced assessment with specific feedback on missing arguments.",
+      "url": "https://smith.langchain.com/o/org123/projects/p/autograding_production/r/tr_030",
+      "timestamp": "2026-03-04T10:00:00Z",
+      "status": "success"
+    },
+    "tr_031": {
+      "input_snippet": "Same essay question graded by gpt-5.2 (post-switch)",
+      "output_snippet": "Score: 9/10. Good effort by the student.",
+      "url": "https://smith.langchain.com/o/org123/projects/p/autograding_production/r/tr_031",
+      "timestamp": "2026-03-06T10:00:00Z",
+      "status": "success"
+    },
+    "tr_032": {
+      "input_snippet": "Complex analysis question — model comparison",
+      "output_snippet": "gpt-5.2 scored 3 points higher on average than gpt-5.2-pro for same rubric.",
+      "url": "https://smith.langchain.com/o/org123/projects/p/autograding_production/r/tr_032",
+      "timestamp": "2026-03-07T14:00:00Z",
+      "status": "success"
+    },
+    "tr_040": {
+      "input_snippet": "Previously timing out question — long essay response",
+      "output_snippet": "Score: 7/10. Completed in 2.1s (previously would timeout at 5s).",
+      "url": "https://smith.langchain.com/o/org123/projects/p/autograding_production/r/tr_040",
+      "timestamp": "2026-03-08T09:00:00Z",
+      "status": "success"
+    },
+    "tr_041": {
+      "input_snippet": "Another previously-flaky trace — now stable",
+      "output_snippet": "Score: 8/10. Completed in 1.8s.",
+      "url": "https://smith.langchain.com/o/org123/projects/p/autograding_production/r/tr_041",
+      "timestamp": "2026-03-09T10:30:00Z",
+      "status": "success"
+    }
+  },
+  "snapshot_id": "snap_20260310_2230",
+  "compared_to": "snap_20260307_2230"
+}
