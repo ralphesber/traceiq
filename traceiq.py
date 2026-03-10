@@ -500,7 +500,7 @@ Return ONLY valid JSON. No markdown, no explanation outside the JSON."""
         messages=[{"role": "user", "content": analysis_prompt}],
         temperature=0.2,
         response_format={"type": "json_object"},
-        max_tokens=2000,
+        max_tokens=4000,
     )
 
     raw = response.choices[0].message.content or "{}"
@@ -620,7 +620,7 @@ def run_insights_mode(runs: list[dict], project: str, since_ts: datetime | None)
     3. Build output matching agreed schema
     4. Since-diff if applicable
     """
-    sampled = smart_sample_runs(runs, target=40)
+    sampled = smart_sample_runs(runs, target=25)
 
     # LLM synthesis
     llm_result = synthesize_with_llm(sampled, project)
@@ -1121,6 +1121,11 @@ def main():
         # Save snapshot
         save_snapshot(output, args.project)
         report = json.dumps(output, indent=2, default=str)
+        # Write insights_output.json for dashboard consumption
+        insights_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "insights_output.json")
+        with open(insights_path, "w") as f:
+            f.write(report)
+        print(f"[TraceIQ] Insights written to insights_output.json", file=sys.stderr)
     else:
         # Legacy metrics mode
         analysis = analyze_runs(runs, args.days)
