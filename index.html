@@ -355,6 +355,86 @@
     .error-title { color: var(--red); font-weight: 600; margin-bottom: 8px; }
     .error-detail { font-size: 13px; color: #991b1b; font-family: monospace; }
 
+    /* Next steps section */
+    .next-steps-section {
+      margin-top: 28px;
+    }
+    .next-steps-section.hero {
+      margin-top: 0;
+      margin-bottom: 28px;
+    }
+    .next-steps-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 14px;
+    }
+    .next-steps-title {
+      font-size: 14px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase;
+      color: #3730a3;
+    }
+    .next-steps-title.hero-title {
+      font-size: 16px;
+    }
+    .next-steps-container {
+      background: #eef2ff;
+      border: 1px solid #c7d2fe;
+      border-radius: var(--radius);
+      padding: 20px 24px;
+    }
+    .next-steps-container.hero {
+      padding: 24px 28px;
+      background: #e0e7ff;
+      border-color: #a5b4fc;
+    }
+    .next-steps-list {
+      list-style: none;
+      counter-reset: steps;
+    }
+    .next-steps-list li {
+      counter-increment: steps;
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid #c7d2fe;
+      font-size: 14px; color: #1e1b4b;
+      line-height: 1.6;
+    }
+    .next-steps-container.hero .next-steps-list li {
+      font-size: 15px;
+      padding: 12px 0;
+    }
+    .next-steps-list li:last-child { border-bottom: none; padding-bottom: 0; }
+    .next-steps-list li:first-child { padding-top: 0; }
+    .next-steps-num {
+      flex-shrink: 0;
+      width: 22px; height: 22px;
+      background: #6366f1;
+      color: white;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700;
+      margin-top: 1px;
+    }
+    .next-steps-container.hero .next-steps-num {
+      width: 26px; height: 26px;
+      font-size: 12px;
+    }
+
+    /* Data gaps callout */
+    .data-gaps-callout {
+      margin-top: 14px;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .data-gaps-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+    .data-gaps-text { font-size: 13px; color: #78350f; line-height: 1.6; }
+    .data-gaps-label { font-weight: 600; }
+
+    /* Extended verdict badge styles */
+    .verdict-needs_more_data { background: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; }
+    .verdict-too_broad { background: #faf5ff; color: #7c3aed; border: 1px solid #ddd6fe; }
+
     /* Utility */
     .mt-24 { margin-top: 24px; }
     .mt-12 { margin-top: 12px; }
@@ -620,12 +700,16 @@
   function verdictClass(verdict) {
     if (verdict === 'supported') return 'verdict-supported';
     if (verdict === 'not_supported') return 'verdict-not_supported';
+    if (verdict === 'needs_more_data') return 'verdict-needs_more_data';
+    if (verdict === 'too_broad') return 'verdict-too_broad';
     return 'verdict-inconclusive';
   }
 
   function verdictLabel(verdict) {
     if (verdict === 'supported') return '✓ Supported';
     if (verdict === 'not_supported') return '✗ Not Supported';
+    if (verdict === 'needs_more_data') return '⏳ Needs More Data';
+    if (verdict === 'too_broad') return '⟳ Too Broad';
     return '~ Inconclusive';
   }
 
@@ -670,6 +754,39 @@
     `;
   }
 
+  function renderNextSteps(nextSteps, dataGaps, isHero) {
+    if (!nextSteps || nextSteps.length === 0) return '';
+    const heroClass = isHero ? ' hero' : '';
+    const heroTitleClass = isHero ? ' hero-title' : '';
+    const containerClass = isHero ? 'hero' : '';
+
+    const stepsHtml = nextSteps.map((step, i) => `
+      <li>
+        <span class="next-steps-num">${i + 1}</span>
+        <span>${esc(step)}</span>
+      </li>
+    `).join('');
+
+    const dataGapsHtml = dataGaps ? `
+      <div class="data-gaps-callout">
+        <span class="data-gaps-icon">🔍</span>
+        <span class="data-gaps-text"><span class="data-gaps-label">What would make this more certain: </span>${esc(dataGaps)}</span>
+      </div>
+    ` : '';
+
+    return `
+      <div class="next-steps-section${heroClass}">
+        <div class="next-steps-header">
+          <span class="next-steps-title${heroTitleClass}">Where to look next</span>
+        </div>
+        <div class="next-steps-container ${containerClass}">
+          <ul class="next-steps-list">${stepsHtml}</ul>
+        </div>
+        ${dataGapsHtml}
+      </div>
+    `;
+  }
+
   function renderResults(data) {
     const beforeLabel = data.prompt_change_date
       ? `Before ${data.prompt_change_date}`
@@ -678,8 +795,30 @@
       ? `After ${data.prompt_change_date}`
       : 'Second half';
 
+    const isDirectional = data.verdict === 'needs_more_data' || data.verdict === 'too_broad';
+    const hasComparison = data.before_change && data.after_change &&
+      (data.before_change.signal || (data.before_change.example_traces && data.before_change.example_traces.length > 0));
+
+    // For needs_more_data / too_broad: next_steps is the hero above the verdict
+    // For other verdicts: next_steps appears below the evidence
+    const heroNextSteps = isDirectional
+      ? renderNextSteps(data.next_steps, data.data_gaps, true)
+      : '';
+    const normalNextSteps = !isDirectional
+      ? renderNextSteps(data.next_steps, data.data_gaps, false)
+      : '';
+
+    const comparisonSection = (!isDirectional && hasComparison) ? `
+      <div class="comparison-grid">
+        ${renderPeriodCard('before', beforeLabel, data.before_change)}
+        ${renderPeriodCard('after', afterLabel, data.after_change)}
+      </div>
+    ` : '';
+
     const html = `
       <div class="card">
+        ${heroNextSteps}
+
         <div class="results-header">
           <div class="hypothesis-display">
             <em>Hypothesis:</em> ${esc(data.hypothesis || '')}
@@ -691,10 +830,9 @@
           <div class="summary-text">${esc(data.summary || '')}</div>
         </div>
 
-        <div class="comparison-grid">
-          ${renderPeriodCard('before', beforeLabel, data.before_change)}
-          ${renderPeriodCard('after', afterLabel, data.after_change)}
-        </div>
+        ${comparisonSection}
+
+        ${normalNextSteps}
 
         <div class="meta-row">
           <span class="meta-item">📊 ${data.traces_analyzed || 0} traces analyzed</span>

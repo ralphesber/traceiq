@@ -578,18 +578,28 @@ TRACES AFTER PROMPT CHANGE ({len(after_traces)} traces):
 {after_json}
 
 Your task:
-1. For each time period (before/after), analyze whether the pattern described in the hypothesis is present
-2. Look at the actual content: input lengths, output lengths, reasoning quality, and any correlations
-3. Determine if the hypothesis is supported, not supported, or inconclusive
-4. Pick 2-3 example traces from each period that best illustrate your finding
+1. First assess if the hypothesis is specific and testable with the given data. If it is too vague or broad (e.g. "is the agent performing well?"), set verdict to "too_broad" and skip the before/after analysis — instead provide good next_steps to narrow it.
+2. If the hypothesis is specific but the data is insufficient to reach a conclusion (e.g. very few relevant traces), set verdict to "needs_more_data".
+3. Otherwise, for each time period (before/after), analyze whether the pattern described in the hypothesis is present.
+4. Look at the actual content: input lengths, output lengths, reasoning quality, and any correlations.
+5. Determine if the hypothesis is supported, not_supported, inconclusive, needs_more_data, or too_broad.
+6. Pick 2-3 example traces from each period that best illustrate your finding (skip if too_broad).
+7. Always provide 2-3 specific, actionable next_steps — even for supported verdicts (suggest how to go deeper).
+8. Always provide data_gaps — what is missing that would make this more conclusive.
 
 Be specific and evidence-based. Reference actual trace data (lengths, content snippets) to support your conclusions.
 
 Respond ONLY with valid JSON matching this exact schema:
 {{
-  "verdict": "supported|not_supported|inconclusive",
+  "verdict": "supported|not_supported|inconclusive|needs_more_data|too_broad",
   "confidence": "high|medium|low",
-  "summary": "Plain language explanation (2-4 sentences) of what you found, with specific evidence",
+  "summary": "Plain language explanation (2-4 sentences) of what you found, with specific evidence. If too_broad, explain why and what would be a better hypothesis.",
+  "next_steps": [
+    "Specific actionable follow-up investigation 1",
+    "Specific actionable follow-up investigation 2",
+    "Specific actionable follow-up investigation 3"
+  ],
+  "data_gaps": "What is missing that would make this more conclusive (e.g. 'Only 8 traces with very short responses — need 30+ to be confident', or 'Ground truth labels would confirm whether shorter reasoning leads to wrong scores')",
   "before_change": {{
     "pattern_present": true,
     "signal": "What pattern you observe in this period (1-2 sentences with data)",
@@ -614,7 +624,9 @@ Respond ONLY with valid JSON matching this exact schema:
       }}
     ]
   }}
-}}"""
+}}
+
+Note: For "too_broad" verdict, before_change and after_change can be null or empty objects. Focus on providing rich next_steps instead."""
 
     if openai_key:
         print(f"[TraceIQ] Calling OpenAI (gpt-4o) for hypothesis analysis...", file=sys.stderr)
@@ -759,6 +771,8 @@ def run_hypothesis_mode(
         "verdict": llm_result.get("verdict", "inconclusive"),
         "confidence": llm_result.get("confidence", "low"),
         "summary": llm_result.get("summary", ""),
+        "next_steps": llm_result.get("next_steps", []),
+        "data_gaps": llm_result.get("data_gaps", ""),
         "before_change": llm_result.get("before_change", {"pattern_present": False, "example_traces": [], "signal": ""}),
         "after_change": llm_result.get("after_change", {"pattern_present": False, "example_traces": [], "signal": ""}),
         "prompt_change_date": prompt_change_date,
