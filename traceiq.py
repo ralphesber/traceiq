@@ -699,6 +699,7 @@ def run_hypothesis_mode(
     # Try to get prompt change date from LangSmith commits API
     prompt_change_dt = None
     prompt_change_date = None
+    split_method = "temporal_midpoint"  # default
 
     commits = fetch_prompt_commits(api_key, project)
     if commits and len(commits) >= 2:
@@ -711,6 +712,7 @@ def run_hypothesis_mode(
                 if prompt_change_dt.tzinfo is None:
                     prompt_change_dt = prompt_change_dt.replace(tzinfo=timezone.utc)
                 prompt_change_date = prompt_change_dt.strftime("%Y-%m-%d")
+                split_method = "prompt_commits_api"
                 print(f"[TraceIQ] Prompt change from commits API: {prompt_change_date}", file=sys.stderr)
             except ValueError:
                 pass
@@ -720,6 +722,7 @@ def run_hypothesis_mode(
         prompt_change_dt = detect_prompt_change_from_runs(runs)
         if prompt_change_dt:
             prompt_change_date = prompt_change_dt.strftime("%Y-%m-%d")
+            split_method = "hash_detection"
             print(f"[TraceIQ] Prompt change detected from traces: {prompt_change_date}", file=sys.stderr)
 
     # Sort runs by time
@@ -776,6 +779,7 @@ def run_hypothesis_mode(
         "before_change": llm_result.get("before_change", {"pattern_present": False, "example_traces": [], "signal": ""}),
         "after_change": llm_result.get("after_change", {"pattern_present": False, "example_traces": [], "signal": ""}),
         "prompt_change_date": prompt_change_date,
+        "split_method": split_method,
         "traces_analyzed": total_analyzed,
         "project": project,
         "generated_at": datetime.now(timezone.utc).isoformat(),

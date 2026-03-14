@@ -1,0 +1,264 @@
+{
+  "generated_at": "2026-03-10T23:01:12.832166+00:00",
+  "project": "autograding_production",
+  "headline": "The agent is performing reliably with consistent success but shows issues with zero latency and missing model data.",
+  "trace_count_analyzed": 25,
+  "insights": {
+    "working": [
+      {
+        "summary": "Consistent success status across all traces indicating reliable performance.",
+        "trace_ids": [
+          "019cb98b-9bd7-7290-8021-65284db8e21e",
+          "019cb98b-9bde-7e01-b733-4444a3ec5173",
+          "019cb98b-9be6-70e2-ae60-3aaacdfc5a2c",
+          "019cb98a-43ea-7de1-bf62-519bb53cd0d5",
+          "019cb98a-44aa-74f1-b5a6-bba378eea1db",
+          "019cb98a-44b1-7050-b5d1-6c3808d0b3b3",
+          "019cd02b-2a64-7550-8edc-a5ecbf0a98b6",
+          "019cd02b-038d-75e2-8d46-6b4afb3cb7d4",
+          "019cd02b-038b-7180-9017-2ad83389c1ad",
+          "019cd02b-038a-7201-a643-b541f06d4db0",
+          "019cd02b-02c7-7192-b11b-09fbcb89a486",
+          "019ccfa0-a214-7750-9211-29b8793f409a",
+          "019ccfa0-7558-7be2-a782-5b11b96ea3a0",
+          "019ccfa0-754d-7890-aaf1-1fb67b3fba23",
+          "019ccfa0-7546-7561-a99c-9e41f610930d",
+          "019ccfa0-753d-71b0-a01b-a98a82fa268c",
+          "019ccf8c-7971-7453-a9f5-e686a96d1c0d",
+          "019ccf8c-4900-7501-90b0-84fbae3db171",
+          "019ccf8c-48fc-7f21-b617-12e1b592f74e",
+          "019ccf8c-48fa-7152-8253-176090132fed",
+          "019ccf8c-48c1-7c63-86eb-4faea418916d",
+          "019cce9c-021a-7082-83c7-16ae89f2e135",
+          "019cce9b-d463-7840-9d9a-f78c5642dc94",
+          "019cce9b-d461-7e31-96ed-f1669eec3bb4",
+          "019cce9b-d45e-78c2-a0cd-6c9ad9516e25"
+        ],
+        "since": "2026-03-04"
+      }
+    ],
+    "broken": [
+      {
+        "summary": "Zero latency recorded in several traces, indicating potential logging or processing issues.",
+        "severity": "medium",
+        "trace_ids": [
+          "019cd02b-2a64-7550-8edc-a5ecbf0a98b6",
+          "019cd02b-038b-7180-9017-2ad83389c1ad",
+          "019ccfa0-a214-7750-9211-29b8793f409a",
+          "019ccfa0-754d-7890-aaf1-1fb67b3fba23",
+          "019ccf8c-7971-7453-a9f5-e686a96d1c0d",
+          "019ccf8c-48fc-7f21-b617-12e1b592f74e",
+          "019cce9c-021a-7082-83c7-16ae89f2e135",
+          "019cce9b-d461-7e31-96ed-f1669eec3bb4"
+        ],
+        "since": "2026-03-08"
+      },
+      {
+        "summary": "Missing model data in several traces, which could affect performance analysis.",
+        "severity": "low",
+        "trace_ids": [
+          "019cb98b-9bd7-7290-8021-65284db8e21e",
+          "019cb98b-9bde-7e01-b733-4444a3ec5173",
+          "019cb98a-43ea-7de1-bf62-519bb53cd0d5",
+          "019cb98a-44aa-74f1-b5a6-bba378eea1db",
+          "019cd02b-2a64-7550-8edc-a5ecbf0a98b6",
+          "019cd02b-038b-7180-9017-2ad83389c1ad",
+          "019cd02b-038a-7201-a643-b541f06d4db0",
+          "019cd02b-02c7-7192-b11b-09fbcb89a486",
+          "019ccfa0-a214-7750-9211-29b8793f409a",
+          "019ccfa0-754d-7890-aaf1-1fb67b3fba23",
+          "019ccfa0-7546-7561-a99c-9e41f610930d",
+          "019ccfa0-753d-71b0-a01b-a98a82fa268c",
+          "019ccf8c-7971-7453-a9f5-e686a96d1c0d",
+          "019ccf8c-48fc-7f21-b617-12e1b592f74e",
+          "019ccf8c-48fa-7152-8253-176090132fed",
+          "019ccf8c-48c1-7c63-86eb-4faea418916d",
+          "019cce9c-021a-7082-83c7-16ae89f2e135",
+          "019cce9b-d461-7e31-96ed-f1669eec3bb4",
+          "019cce9b-d45e-78c2-a0cd-6c9ad9516e25"
+        ],
+        "since": "2026-03-04"
+      }
+    ],
+    "changed": []
+  },
+  "traces": {
+    "019cb98b-9bd7-7290-8021-65284db8e21e": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019cb98b-9bd7-7290-8021-65284db8e21e/r",
+      "timestamp": "2026-03-04T15:51:00.311886+00:00",
+      "status": "success"
+    },
+    "019cb98b-9bde-7e01-b733-4444a3ec5173": {
+      "input_snippet": "Evaluate and critique both arguments. In your critique:\n\n\n\tIdentify any scientific inaccuracies in both arguments.\n\tProvide accurate scientific reasoning to explain any inaccuracies.\n\n\nWrite your answ\u2026",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019cb98b-9bde-7e01-b733-4444a3ec5173/r",
+      "timestamp": "2026-03-04T15:51:00.318134+00:00",
+      "status": "success"
+    },
+    "019cb98b-9be6-70e2-ae60-3aaacdfc5a2c": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019cb98b-9be6-70e2-ae60-3aaacdfc5a2c/r",
+      "timestamp": "2026-03-04T15:51:00.326366+00:00",
+      "status": "success"
+    },
+    "019cb98a-43ea-7de1-bf62-519bb53cd0d5": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019cb98a-43ea-7de1-bf62-519bb53cd0d5/r",
+      "timestamp": "2026-03-04T15:49:32.266272+00:00",
+      "status": "success"
+    },
+    "019cb98a-44aa-74f1-b5a6-bba378eea1db": {
+      "input_snippet": "Andrea and Sharon observe that the ecosphere with algae, shrimp, and bacteria was successful and the ecosphere with just shrimp and bacteria was not successful. They wonder what would happen if they m\u2026",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019cb98a-44aa-74f1-b5a6-bba378eea1db/r",
+      "timestamp": "2026-03-04T15:49:32.458385+00:00",
+      "status": "success"
+    },
+    "019cb98a-44b1-7050-b5d1-6c3808d0b3b3": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019cb98a-44b1-7050-b5d1-6c3808d0b3b3/r",
+      "timestamp": "2026-03-04T15:49:32.465555+00:00",
+      "status": "success"
+    },
+    "019cd02b-2a64-7550-8edc-a5ecbf0a98b6": {
+      "input_snippet": "{'additional_kwargs': {'parsed': {'feedback_student': 'You included all four required parts correctly.\\n\\n- Claim: You clearly stated, \u201cPat did not cross the property line\u2026,\u201d which matches the expecte\u2026",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019cd02b-2a64-7550-8edc-a5ecbf0a98b6/r",
+      "timestamp": "2026-03-09T01:16:55.780618+00:00",
+      "status": "success"
+    },
+    "019cd02b-038d-75e2-8d46-6b4afb3cb7d4": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019cd02b-038d-75e2-8d46-6b4afb3cb7d4/r",
+      "timestamp": "2026-03-09T01:16:45.837293+00:00",
+      "status": "success"
+    },
+    "019cd02b-038b-7180-9017-2ad83389c1ad": {
+      "input_snippet": "After Pat and Gertrude bred the corn in question with itself, 25 percent of the offspring were yellow and 75 percent purple.\n\n\n\tMake a claim: Did Pat cross the property line and plant Blue Hopi corn i\u2026",
+      "output_snippet": "{'messages': [{'additional_kwargs': {}, 'content': 'You are an expert assessor. Your job is to evaluate a student\u2019s answer using only the provided assessment materials.\\n \\nYou will receive\\n \\nConten\u2026",
+      "url": "https://smith.langchain.com/public/019cd02b-038b-7180-9017-2ad83389c1ad/r",
+      "timestamp": "2026-03-09T01:16:45.835534+00:00",
+      "status": "success"
+    },
+    "019cd02b-038a-7201-a643-b541f06d4db0": {
+      "input_snippet": "After Pat and Gertrude bred the corn in question with itself, 25 percent of the offspring were yellow and 75 percent purple.\n\n\n\tMake a claim: Did Pat cross the property line and plant Blue Hopi corn i\u2026",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019cd02b-038a-7201-a643-b541f06d4db0/r",
+      "timestamp": "2026-03-09T01:16:45.834107+00:00",
+      "status": "success"
+    },
+    "019cd02b-02c7-7192-b11b-09fbcb89a486": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019cd02b-02c7-7192-b11b-09fbcb89a486/r",
+      "timestamp": "2026-03-09T01:16:45.639551+00:00",
+      "status": "success"
+    },
+    "019ccfa0-a214-7750-9211-29b8793f409a": {
+      "input_snippet": "{'additional_kwargs': {'parsed': {'feedback_student': 'Your response includes all four required components and matches the genetics argument in the answer key.\\n\\n- Claim: You clearly claim Pat is inn\u2026",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ccfa0-a214-7750-9211-29b8793f409a/r",
+      "timestamp": "2026-03-08T22:45:36.917037+00:00",
+      "status": "success"
+    },
+    "019ccfa0-7558-7be2-a782-5b11b96ea3a0": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ccfa0-7558-7be2-a782-5b11b96ea3a0/r",
+      "timestamp": "2026-03-08T22:45:25.464942+00:00",
+      "status": "success"
+    },
+    "019ccfa0-754d-7890-aaf1-1fb67b3fba23": {
+      "input_snippet": "After Pat and Gertrude bred the corn in question with itself, 25 percent of the offspring were yellow and 75 percent purple.\n\n\n\tMake a claim: Did Pat cross the property line and plant Blue Hopi corn i\u2026",
+      "output_snippet": "{'messages': [{'additional_kwargs': {}, 'content': 'You are an expert assessor. Your job is to evaluate a student\u2019s answer using only the provided assessment materials.\\n \\nYou will receive\\n \\nConten\u2026",
+      "url": "https://smith.langchain.com/public/019ccfa0-754d-7890-aaf1-1fb67b3fba23/r",
+      "timestamp": "2026-03-08T22:45:25.453685+00:00",
+      "status": "success"
+    },
+    "019ccfa0-7546-7561-a99c-9e41f610930d": {
+      "input_snippet": "After Pat and Gertrude bred the corn in question with itself, 25 percent of the offspring were yellow and 75 percent purple.\n\n\n\tMake a claim: Did Pat cross the property line and plant Blue Hopi corn i\u2026",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ccfa0-7546-7561-a99c-9e41f610930d/r",
+      "timestamp": "2026-03-08T22:45:25.446499+00:00",
+      "status": "success"
+    },
+    "019ccfa0-753d-71b0-a01b-a98a82fa268c": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ccfa0-753d-71b0-a01b-a98a82fa268c/r",
+      "timestamp": "2026-03-08T22:45:25.437838+00:00",
+      "status": "success"
+    },
+    "019ccf8c-7971-7453-a9f5-e686a96d1c0d": {
+      "input_snippet": "{'additional_kwargs': {'parsed': {'feedback_student': 'Your claim is correct: you wrote \u201cPat did not cross the property line,\u201d which matches the expected conclusion that Pat is innocent.\\n\\nYou also u\u2026",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ccf8c-7971-7453-a9f5-e686a96d1c0d/r",
+      "timestamp": "2026-03-08T22:23:35.793465+00:00",
+      "status": "success"
+    },
+    "019ccf8c-4900-7501-90b0-84fbae3db171": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ccf8c-4900-7501-90b0-84fbae3db171/r",
+      "timestamp": "2026-03-08T22:23:23.392586+00:00",
+      "status": "success"
+    },
+    "019ccf8c-48fc-7f21-b617-12e1b592f74e": {
+      "input_snippet": "After Pat and Gertrude bred the corn in question with itself, 25 percent of the offspring were yellow and 75 percent purple.\n\n\n\tMake a claim: Did Pat cross the property line and plant Blue Hopi corn i\u2026",
+      "output_snippet": "{'messages': [{'additional_kwargs': {}, 'content': 'You are an expert assessor. Your job is to evaluate a student\u2019s answer using only the provided assessment materials.\\n \\nYou will receive\\n \\nConten\u2026",
+      "url": "https://smith.langchain.com/public/019ccf8c-48fc-7f21-b617-12e1b592f74e/r",
+      "timestamp": "2026-03-08T22:23:23.388879+00:00",
+      "status": "success"
+    },
+    "019ccf8c-48fa-7152-8253-176090132fed": {
+      "input_snippet": "After Pat and Gertrude bred the corn in question with itself, 25 percent of the offspring were yellow and 75 percent purple.\n\n\n\tMake a claim: Did Pat cross the property line and plant Blue Hopi corn i\u2026",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ccf8c-48fa-7152-8253-176090132fed/r",
+      "timestamp": "2026-03-08T22:23:23.386221+00:00",
+      "status": "success"
+    },
+    "019ccf8c-48c1-7c63-86eb-4faea418916d": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ccf8c-48c1-7c63-86eb-4faea418916d/r",
+      "timestamp": "2026-03-08T22:23:23.329490+00:00",
+      "status": "success"
+    },
+    "019cce9c-021a-7082-83c7-16ae89f2e135": {
+      "input_snippet": "{'additional_kwargs': {'parsed': {'feedback_student': 'Your claim is clear and matches the expected conclusion: you wrote, \u201cNo, Pat did not cross the property line,\u201d which aligns with the correct clai\u2026",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019cce9c-021a-7082-83c7-16ae89f2e135/r",
+      "timestamp": "2026-03-08T18:00:56.602847+00:00",
+      "status": "success"
+    },
+    "019cce9b-d463-7840-9d9a-f78c5642dc94": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019cce9b-d463-7840-9d9a-f78c5642dc94/r",
+      "timestamp": "2026-03-08T18:00:44.899762+00:00",
+      "status": "success"
+    },
+    "019cce9b-d461-7e31-96ed-f1669eec3bb4": {
+      "input_snippet": "After Pat and Gertrude bred the corn in question with itself, 25 percent of the offspring were yellow and 75 percent purple.\n\n\n\tMake a claim: Did Pat cross the property line and plant Blue Hopi corn i\u2026",
+      "output_snippet": "{'messages': [{'additional_kwargs': {}, 'content': 'You are an expert assessor. Your job is to evaluate a student\u2019s answer using only the provided assessment materials.\\n \\nYou will receive\\n \\nConten\u2026",
+      "url": "https://smith.langchain.com/public/019cce9b-d461-7e31-96ed-f1669eec3bb4/r",
+      "timestamp": "2026-03-08T18:00:44.897485+00:00",
+      "status": "success"
+    },
+    "019cce9b-d45e-78c2-a0cd-6c9ad9516e25": {
+      "input_snippet": "After Pat and Gertrude bred the corn in question with itself, 25 percent of the offspring were yellow and 75 percent purple.\n\n\n\tMake a claim: Did Pat cross the property line and plant Blue Hopi corn i\u2026",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019cce9b-d45e-78c2-a0cd-6c9ad9516e25/r",
+      "timestamp": "2026-03-08T18:00:44.894953+00:00",
+      "status": "success"
+    }
+  },
+  "snapshot_id": "dd8dbfb6-3969-4a2e-8223-3e5aef866d51",
+  "compared_to": null
+}

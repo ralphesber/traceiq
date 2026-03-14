@@ -1,0 +1,277 @@
+{
+  "generated_at": "2026-03-14T15:26:09.446919+00:00",
+  "project": "autograding_production",
+  "headline": "The agent is performing reliably with consistent outputs, but there are occasional latency issues and missing model information.",
+  "trace_count_analyzed": 25,
+  "insights": {
+    "working": [
+      {
+        "summary": "Consistent success status across all traces indicating reliable performance.",
+        "trace_ids": [
+          "019cb501-f82a-76e3-a4ab-37992ef224cb",
+          "019cb501-f836-7b31-adf4-d513acdcd89d",
+          "019cb501-f83d-7322-9369-d5b765a9dbdb",
+          "019cb98b-9bd7-7290-8021-65284db8e21e",
+          "019cb98b-9bde-7e01-b733-4444a3ec5173",
+          "019cb98b-9be6-70e2-ae60-3aaacdfc5a2c",
+          "019ce9de-8821-7781-a157-f6a669b09f2d",
+          "019ce9de-68db-7230-8cfc-920f12bc44c4",
+          "019ce9de-68d6-7741-b2c7-9ffebb6fb7d8",
+          "019ce9de-68d3-7e81-ba0f-85a8096089be",
+          "019ce9de-6811-7c20-ad83-7812ac50cbf9",
+          "019ce77a-9b91-7341-8fb7-b6d443f28776",
+          "019ce77a-99be-7dd2-93bc-2f78ed96fce6",
+          "019ce77a-9711-7f51-805a-ca4efdbf73e0",
+          "019ce77a-7da9-7f40-95be-1e752682d432",
+          "019ce77a-7da5-7280-8767-2d0c29fdc2ee",
+          "019ce77a-7da2-7040-8c7f-83ef6582a7ed",
+          "019ce77a-7da2-7040-8c7f-83ef6582a7ed",
+          "019ce77a-7d9c-7e62-bffc-d12bbcf3c74a",
+          "019ce77a-7b6f-7bc1-b6a9-14a90ff619cf",
+          "019ce77a-7b6d-7f00-8831-0121d226717b",
+          "019ce77a-7b6b-72a1-9b39-1b33091fc198",
+          "019ce77a-7b60-7922-9189-11d40b170493",
+          "019ce77a-7b5d-75d3-932e-3a27c85e6acc",
+          "019ce77a-7b58-71f2-bbe4-7b240ea5a9d2"
+        ],
+        "since": "2026-03-03"
+      }
+    ],
+    "broken": [
+      {
+        "summary": "Missing model information in several traces, which could affect trace analysis.",
+        "severity": "medium",
+        "trace_ids": [
+          "019cb501-f82a-76e3-a4ab-37992ef224cb",
+          "019cb501-f836-7b31-adf4-d513acdcd89d",
+          "019cb98b-9bd7-7290-8021-65284db8e21e",
+          "019cb98b-9bde-7e01-b733-4444a3ec5173",
+          "019ce9de-8821-7781-a157-f6a669b09f2d",
+          "019ce9de-68d6-7741-b2c7-9ffebb6fb7d8",
+          "019ce9de-6811-7c20-ad83-7812ac50cbf9",
+          "019ce77a-9b91-7341-8fb7-b6d443f28776",
+          "019ce77a-99be-7dd2-93bc-2f78ed96fce6",
+          "019ce77a-9711-7f51-805a-ca4efdbf73e0",
+          "019ce77a-7da5-7280-8767-2d0c29fdc2ee",
+          "019ce77a-7da2-7040-8c7f-83ef6582a7ed",
+          "019ce77a-7d9c-7e62-bffc-d12bbcf3c74a",
+          "019ce77a-7b6d-7f00-8831-0121d226717b",
+          "019ce77a-7b6b-72a1-9b39-1b33091fc198",
+          "019ce77a-7b60-7922-9189-11d40b170493",
+          "019ce77a-7b5d-75d3-932e-3a27c85e6acc",
+          "019ce77a-7b58-71f2-bbe4-7b240ea5a9d2"
+        ],
+        "since": "2026-03-03"
+      },
+      {
+        "summary": "Zero latency recorded in some traces, indicating potential logging or processing issues.",
+        "severity": "low",
+        "trace_ids": [
+          "019ce9de-8821-7781-a157-f6a669b09f2d",
+          "019ce77a-9b91-7341-8fb7-b6d443f28776",
+          "019ce77a-99be-7dd2-93bc-2f78ed96fce6",
+          "019ce77a-9711-7f51-805a-ca4efdbf73e0",
+          "019ce77a-7da5-7280-8767-2d0c29fdc2ee",
+          "019ce77a-7b6d-7f00-8831-0121d226717b",
+          "019ce77a-7b60-7922-9189-11d40b170493",
+          "019ce77a-7b5d-75d3-932e-3a27c85e6acc"
+        ],
+        "since": "2026-03-13"
+      }
+    ],
+    "changed": [
+      {
+        "summary": "Latency has improved in recent traces compared to earlier ones.",
+        "trace_ids": [
+          "019ce9de-68db-7230-8cfc-920f12bc44c4",
+          "019ce9de-68d3-7e81-ba0f-85a8096089be",
+          "019ce77a-7da9-7f40-95be-1e752682d432",
+          "019ce77a-7da2-7040-8c7f-83ef6582a7ed",
+          "019ce77a-7b6f-7bc1-b6a9-14a90ff619cf",
+          "019ce77a-7b58-71f2-bbe4-7b240ea5a9d2"
+        ],
+        "direction": "better",
+        "since": "2026-03-13"
+      }
+    ]
+  },
+  "traces": {
+    "019cb501-f82a-76e3-a4ab-37992ef224cb": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019cb501-f82a-76e3-a4ab-37992ef224cb/r",
+      "timestamp": "2026-03-03T18:42:11.114656+00:00",
+      "status": "success"
+    },
+    "019cb501-f836-7b31-adf4-d513acdcd89d": {
+      "input_snippet": "How does the interaction between light penetration in deep water and the process of photosynthesis help cyanobacteria survive, but hinder the survival of aquatic plants?\n",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019cb501-f836-7b31-adf4-d513acdcd89d/r",
+      "timestamp": "2026-03-03T18:42:11.126289+00:00",
+      "status": "success"
+    },
+    "019cb501-f83d-7322-9369-d5b765a9dbdb": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019cb501-f83d-7322-9369-d5b765a9dbdb/r",
+      "timestamp": "2026-03-03T18:42:11.133789+00:00",
+      "status": "success"
+    },
+    "019cb98b-9bd7-7290-8021-65284db8e21e": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019cb98b-9bd7-7290-8021-65284db8e21e/r",
+      "timestamp": "2026-03-04T15:51:00.311886+00:00",
+      "status": "success"
+    },
+    "019cb98b-9bde-7e01-b733-4444a3ec5173": {
+      "input_snippet": "Evaluate and critique both arguments. In your critique:\n\n\n\tIdentify any scientific inaccuracies in both arguments.\n\tProvide accurate scientific reasoning to explain any inaccuracies.\n\n\nWrite your answ\u2026",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019cb98b-9bde-7e01-b733-4444a3ec5173/r",
+      "timestamp": "2026-03-04T15:51:00.318134+00:00",
+      "status": "success"
+    },
+    "019cb98b-9be6-70e2-ae60-3aaacdfc5a2c": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019cb98b-9be6-70e2-ae60-3aaacdfc5a2c/r",
+      "timestamp": "2026-03-04T15:51:00.326366+00:00",
+      "status": "success"
+    },
+    "019ce9de-8821-7781-a157-f6a669b09f2d": {
+      "input_snippet": "{'additional_kwargs': {'parsed': {'feedback_student': 'You correctly explain that stopping antibiotics early can make the infection \u201ccome back stronger and more resistant,\u201d and you emphasize it\u2019s impo\u2026",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ce9de-8821-7781-a157-f6a669b09f2d/r",
+      "timestamp": "2026-03-14T01:03:21.121747+00:00",
+      "status": "success"
+    },
+    "019ce9de-68db-7230-8cfc-920f12bc44c4": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ce9de-68db-7230-8cfc-920f12bc44c4/r",
+      "timestamp": "2026-03-14T01:03:13.115232+00:00",
+      "status": "success"
+    },
+    "019ce9de-68d6-7741-b2c7-9ffebb6fb7d8": {
+      "input_snippet": "What would most likely happen to you if you chose to stop taking your antibiotics early? What effect might stopping a course of antibiotics have on the ability of vancomycin to fight it off, and why? \u2026",
+      "output_snippet": "{'messages': [{'additional_kwargs': {}, 'content': 'You are an expert assessor. Your job is to evaluate a student\u2019s answer using only the provided assessment materials.\\n \\nYou will receive\\n \\nConten\u2026",
+      "url": "https://smith.langchain.com/public/019ce9de-68d6-7741-b2c7-9ffebb6fb7d8/r",
+      "timestamp": "2026-03-14T01:03:13.110707+00:00",
+      "status": "success"
+    },
+    "019ce9de-68d3-7e81-ba0f-85a8096089be": {
+      "input_snippet": "What would most likely happen to you if you chose to stop taking your antibiotics early? What effect might stopping a course of antibiotics have on the ability of vancomycin to fight it off, and why? \u2026",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ce9de-68d3-7e81-ba0f-85a8096089be/r",
+      "timestamp": "2026-03-14T01:03:13.107662+00:00",
+      "status": "success"
+    },
+    "019ce9de-6811-7c20-ad83-7812ac50cbf9": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ce9de-6811-7c20-ad83-7812ac50cbf9/r",
+      "timestamp": "2026-03-14T01:03:12.913112+00:00",
+      "status": "success"
+    },
+    "019ce77a-9b91-7341-8fb7-b6d443f28776": {
+      "input_snippet": "{'content': [{'type': 'text', 'text': '{\"marks\":0,\"feedback_student\":\"Your response only includes the title \u201cThe Relationship Between Human Activity and Lightning,\u201d but it does not actually explain wh\u2026",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ce77a-9b91-7341-8fb7-b6d443f28776/r",
+      "timestamp": "2026-03-13T13:54:58.065274+00:00",
+      "status": "success"
+    },
+    "019ce77a-99be-7dd2-93bc-2f78ed96fce6": {
+      "input_snippet": "{'content': [{'type': 'text', 'text': '{\"marks\":1,\"feedback_student\":\"You correctly explain the direction of carbon movement after trees regrow: you say the regrowth \u201cacts as a carbon sink,\u201d which mat\u2026",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ce77a-99be-7dd2-93bc-2f78ed96fce6/r",
+      "timestamp": "2026-03-13T13:54:57.598934+00:00",
+      "status": "success"
+    },
+    "019ce77a-9711-7f51-805a-ca4efdbf73e0": {
+      "input_snippet": "{'content': [{'type': 'text', 'text': '{\"marks\":0,\"feedback_student\":\"Your answer says that \u201cthe nutrients in the soil typically provide a short-term boost to the growth of spruce trees.\u201d The provided\u2026",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ce77a-9711-7f51-805a-ca4efdbf73e0/r",
+      "timestamp": "2026-03-13T13:54:56.913626+00:00",
+      "status": "success"
+    },
+    "019ce77a-7da9-7f40-95be-1e752682d432": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ce77a-7da9-7f40-95be-1e752682d432/r",
+      "timestamp": "2026-03-13T13:54:50.409779+00:00",
+      "status": "success"
+    },
+    "019ce77a-7da5-7280-8767-2d0c29fdc2ee": {
+      "input_snippet": "Eventually, new trees start to grow after a wildfire.&nbsp; How does this affect the amount of carbon in the biosphere and atmosphere?\n",
+      "output_snippet": "{'messages': [{'content': 'You are an expert assessor. Your job is to evaluate a student\u2019s answer using only the provided assessment materials.\\n \\nYou will receive\\n \\nContent Page Context (the only \u2026",
+      "url": "https://smith.langchain.com/public/019ce77a-7da5-7280-8767-2d0c29fdc2ee/r",
+      "timestamp": "2026-03-13T13:54:50.405036+00:00",
+      "status": "success"
+    },
+    "019ce77a-7da2-7040-8c7f-83ef6582a7ed": {
+      "input_snippet": "Eventually, new trees start to grow after a wildfire.&nbsp; How does this affect the amount of carbon in the biosphere and atmosphere?\n",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ce77a-7da2-7040-8c7f-83ef6582a7ed/r",
+      "timestamp": "2026-03-13T13:54:50.402235+00:00",
+      "status": "success"
+    },
+    "019ce77a-7d9c-7e62-bffc-d12bbcf3c74a": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ce77a-7d9c-7e62-bffc-d12bbcf3c74a/r",
+      "timestamp": "2026-03-13T13:54:50.396784+00:00",
+      "status": "success"
+    },
+    "019ce77a-7b6f-7bc1-b6a9-14a90ff619cf": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ce77a-7b6f-7bc1-b6a9-14a90ff619cf/r",
+      "timestamp": "2026-03-13T13:54:49.840029+00:00",
+      "status": "success"
+    },
+    "019ce77a-7b6d-7f00-8831-0121d226717b": {
+      "input_snippet": "What does the data suggest about the relationship between human activity and frequency of lightning strikes?\nThe explanation should include whether this is a direct or indirect relationship.\n",
+      "output_snippet": "{'messages': [{'content': 'You are an expert assessor. Your job is to evaluate a student\u2019s answer using only the provided assessment materials.\\n \\nYou will receive\\n \\nContent Page Context (the only \u2026",
+      "url": "https://smith.langchain.com/public/019ce77a-7b6d-7f00-8831-0121d226717b/r",
+      "timestamp": "2026-03-13T13:54:49.837345+00:00",
+      "status": "success"
+    },
+    "019ce77a-7b6b-72a1-9b39-1b33091fc198": {
+      "input_snippet": "What does the data suggest about the relationship between human activity and frequency of lightning strikes?\nThe explanation should include whether this is a direct or indirect relationship.\n",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ce77a-7b6b-72a1-9b39-1b33091fc198/r",
+      "timestamp": "2026-03-13T13:54:49.835257+00:00",
+      "status": "success"
+    },
+    "019ce77a-7b60-7922-9189-11d40b170493": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ce77a-7b60-7922-9189-11d40b170493/r",
+      "timestamp": "2026-03-13T13:54:49.824969+00:00",
+      "status": "success"
+    },
+    "019ce77a-7b60-7821-97da-f9c02c1c8334": {
+      "input_snippet": "",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ce77a-7b60-7821-97da-f9c02c1c8334/r",
+      "timestamp": "2026-03-13T13:54:49.824104+00:00",
+      "status": "success"
+    },
+    "019ce77a-7b5d-75d3-932e-3a27c85e6acc": {
+      "input_snippet": "How do the nutrients in the soil immediately after a wildfire affect the growth of black spruce and white spruce trees?\n",
+      "output_snippet": "{'messages': [{'content': 'You are an expert assessor. Your job is to evaluate a student\u2019s answer using only the provided assessment materials.\\n \\nYou will receive\\n \\nContent Page Context (the only \u2026",
+      "url": "https://smith.langchain.com/public/019ce77a-7b5d-75d3-932e-3a27c85e6acc/r",
+      "timestamp": "2026-03-13T13:54:49.821738+00:00",
+      "status": "success"
+    },
+    "019ce77a-7b58-71f2-bbe4-7b240ea5a9d2": {
+      "input_snippet": "How do the nutrients in the soil immediately after a wildfire affect the growth of black spruce and white spruce trees?\n",
+      "output_snippet": "",
+      "url": "https://smith.langchain.com/public/019ce77a-7b58-71f2-bbe4-7b240ea5a9d2/r",
+      "timestamp": "2026-03-13T13:54:49.816840+00:00",
+      "status": "success"
+    }
+  },
+  "snapshot_id": "27670a62-1874-46ef-a539-fcbbde6b006d",
+  "compared_to": null
+}
