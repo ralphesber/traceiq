@@ -435,6 +435,96 @@
     .verdict-needs_more_data { background: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; }
     .verdict-too_broad { background: #faf5ff; color: #7c3aed; border: 1px solid #ddd6fe; }
 
+    /* ── Split mode segmented control ──────────────────────────────── */
+    .split-mode-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-top: 14px; flex-wrap: wrap;
+    }
+    .split-mode-label {
+      font-size: 13px; color: var(--text-muted); white-space: nowrap;
+    }
+    .segmented {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: var(--bg);
+    }
+    .seg-btn {
+      font-family: inherit;
+      font-size: 12px; font-weight: 500;
+      padding: 6px 14px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.12s;
+      border-right: 1px solid var(--border);
+    }
+    .seg-btn:last-child { border-right: none; }
+    .seg-btn:hover { background: var(--surface); color: var(--text); }
+    .seg-btn.active {
+      background: var(--text);
+      color: white;
+    }
+
+    /* ── History screen ─────────────────────────────────────────────── */
+    .history-list { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
+    .history-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px 20px;
+      display: flex; align-items: flex-start; gap: 14px;
+      cursor: pointer;
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .history-item:hover { border-color: var(--accent); box-shadow: var(--shadow-md); }
+    .history-item-main { flex: 1; min-width: 0; }
+    .history-hypothesis {
+      font-size: 14px; font-weight: 500; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-bottom: 6px;
+    }
+    .history-meta {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      font-size: 12px; color: var(--text-muted);
+    }
+    .history-delete {
+      flex-shrink: 0;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-light);
+      font-size: 12px; padding: 5px 10px;
+      cursor: pointer; transition: all 0.12s;
+      font-family: inherit;
+    }
+    .history-delete:hover { background: var(--red-bg); border-color: #fecaca; color: var(--red); }
+    .history-empty {
+      text-align: center; padding: 60px 24px;
+      color: var(--text-muted); font-size: 15px;
+    }
+    .history-empty-icon { font-size: 32px; margin-bottom: 12px; }
+
+    /* ── No-split evidence card ─────────────────────────────────────── */
+    .evidence-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-top: 28px;
+    }
+    .evidence-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border-light);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .evidence-label {
+      font-size: 12px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
     /* Utility */
     .mt-24 { margin-top: 24px; }
     .mt-12 { margin-top: 12px; }
@@ -524,6 +614,15 @@
         </div>
       </div>
 
+      <div class="split-mode-row">
+        <span class="split-mode-label">Split mode</span>
+        <div class="segmented" id="split-mode-control">
+          <button class="seg-btn active" data-value="prompt_change" onclick="setSplitMode(this)">Prompt change</button>
+          <button class="seg-btn" data-value="time_split" onclick="setSplitMode(this)">Time split</button>
+          <button class="seg-btn" data-value="none" onclick="setSplitMode(this)">No split</button>
+        </div>
+      </div>
+
       <div class="analysis-options">
         <button class="btn btn-primary btn-lg" onclick="runAnalysis()" id="analyse-btn">
           <span>Analyse</span>
@@ -538,7 +637,8 @@
             <option value="90">90 days</option>
           </select>
         </div>
-        <button class="btn btn-ghost text-sm" onclick="disconnect()" style="margin-left:auto">Change project</button>
+        <button class="btn btn-ghost text-sm" onclick="showHistoryScreen()" style="margin-left:auto">History</button>
+        <button class="btn btn-ghost text-sm" onclick="disconnect()">Change project</button>
       </div>
     </div>
 
@@ -578,9 +678,54 @@
 </div>
 
 
+<!-- ── Screen 4: History ─────────────────────────────────────────── -->
+<div id="screen-history" class="screen">
+  <div class="container">
+    <div class="flex-between" style="margin-bottom:32px;flex-wrap:wrap;gap:12px">
+      <div class="logo" style="margin-bottom:0">
+        <div class="logo-mark">TQ</div>
+        <div>
+          <span class="logo-text">TraceIQ</span>
+          <span class="logo-sub">History</span>
+        </div>
+      </div>
+      <button class="btn btn-ghost" onclick="showHypothesisScreen()">← Back</button>
+    </div>
+
+    <div id="history-content">
+      <div class="history-empty">
+        <div class="history-empty-icon">⏳</div>
+        <div>Loading history…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 <script>
   // ── State ────────────────────────────────────────────────────────
-  let state = { apiKey: '', project: '', hypothesis: '', result: null };
+  let state = { apiKey: '', project: '', hypothesis: '', result: null, splitMode: 'prompt_change' };
+
+  // ── Persistence ──────────────────────────────────────────────────
+  function saveCredentials(apiKey, project) {
+    try { localStorage.setItem('traceiq_api_key', apiKey); } catch(e) {}
+    try { localStorage.setItem('traceiq_project', project); } catch(e) {}
+  }
+  function loadCredentials() {
+    try {
+      const apiKey = localStorage.getItem('traceiq_api_key') || '';
+      const project = localStorage.getItem('traceiq_project') || '';
+      if (apiKey) document.getElementById('api-key').value = apiKey;
+      if (project) document.getElementById('project-name').value = project;
+    } catch(e) {}
+  }
+
+  // ── Split mode ───────────────────────────────────────────────────
+  function setSplitMode(btn) {
+    document.querySelectorAll('#split-mode-control .seg-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.splitMode = btn.dataset.value;
+  }
 
   // ── Navigation ───────────────────────────────────────────────────
   function showScreen(id) {
@@ -599,6 +744,7 @@
     }
     state.apiKey = apiKey;
     state.project = project;
+    saveCredentials(apiKey, project);
     document.getElementById('connected-project').textContent = project;
     showScreen('screen-hypothesis');
   }
@@ -614,9 +760,17 @@
     showScreen('screen-hypothesis');
   }
 
+  async function showHistoryScreen() {
+    showScreen('screen-history');
+    await loadHistory();
+  }
+
   // ── Enter key in connect inputs ──────────────────────────────────
   document.getElementById('api-key').addEventListener('keydown', e => { if (e.key === 'Enter') connect(); });
   document.getElementById('project-name').addEventListener('keydown', e => { if (e.key === 'Enter') connect(); });
+
+  // ── Auto-fill saved credentials ──────────────────────────────────
+  loadCredentials();
 
   // ── Loading steps ────────────────────────────────────────────────
   function setStep(stepId) {
@@ -670,6 +824,7 @@
           api_key: state.apiKey,
           project: state.project,
           days,
+          split_mode: state.splitMode,
         }),
       });
 
@@ -787,7 +942,32 @@
     `;
   }
 
+  function renderEvidenceCard(evidence) {
+    if (!evidence) return '';
+    const patternPresent = evidence.pattern_present;
+    return `
+      <div class="evidence-card">
+        <div class="evidence-header">
+          <span class="evidence-label">Evidence across all traces</span>
+          <span class="pattern-pill ${patternPresent ? 'pattern-yes' : 'pattern-no'}">
+            ${patternPresent ? 'Pattern present' : 'Pattern absent'}
+          </span>
+        </div>
+        <div class="period-body">
+          ${evidence.signal ? `<p class="signal-text">${esc(evidence.signal)}</p>` : ''}
+          ${evidence.example_traces && evidence.example_traces.length > 0 ? `
+            <div class="traces-label">Example traces</div>
+            ${renderTraceSnippets(evidence.example_traces)}
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }
+
   function renderResults(data) {
+    const splitMode = data.split_mode || 'prompt_change';
+    const isNoSplit = splitMode === 'none';
+
     const beforeLabel = data.prompt_change_date
       ? `Before ${data.prompt_change_date}`
       : 'First half';
@@ -796,11 +976,9 @@
       : 'Second half';
 
     const isDirectional = data.verdict === 'needs_more_data' || data.verdict === 'too_broad';
-    const hasComparison = data.before_change && data.after_change &&
+    const hasComparison = !isNoSplit && data.before_change && data.after_change &&
       (data.before_change.signal || (data.before_change.example_traces && data.before_change.example_traces.length > 0));
 
-    // For needs_more_data / too_broad: next_steps is the hero above the verdict
-    // For other verdicts: next_steps appears below the evidence
     const heroNextSteps = isDirectional
       ? renderNextSteps(data.next_steps, data.data_gaps, true)
       : '';
@@ -814,6 +992,17 @@
         ${renderPeriodCard('after', afterLabel, data.after_change)}
       </div>
     ` : '';
+
+    const evidenceSection = (!isDirectional && isNoSplit && data.evidence)
+      ? renderEvidenceCard(data.evidence)
+      : '';
+
+    // Split mode meta label
+    const splitModeLabel = isNoSplit
+      ? '<span class="meta-item">🔀 No split — all traces analyzed as one group</span>'
+      : (data.prompt_change_date
+          ? `<span class="meta-item">🔄 Prompt changed ${esc(data.prompt_change_date)}</span>`
+          : '<span class="meta-item text-muted">No prompt change detected — split at temporal midpoint</span>');
 
     const html = `
       <div class="card">
@@ -831,18 +1020,97 @@
         </div>
 
         ${comparisonSection}
+        ${evidenceSection}
 
         ${normalNextSteps}
 
         <div class="meta-row">
           <span class="meta-item">📊 ${data.traces_analyzed || 0} traces analyzed</span>
           ${data.project ? `<span class="meta-item">📁 ${esc(data.project)}</span>` : ''}
-          ${data.prompt_change_date ? `<span class="meta-item">🔄 Prompt changed ${esc(data.prompt_change_date)}</span>` : '<span class="meta-item text-muted">No prompt change detected — split at temporal midpoint</span>'}
+          ${splitModeLabel}
           ${data.generated_at ? `<span class="meta-item" style="margin-left:auto;color:var(--text-light)">${new Date(data.generated_at).toLocaleString()}</span>` : ''}
         </div>
       </div>
     `;
     document.getElementById('results-content').innerHTML = html;
+  }
+
+  // ── History ──────────────────────────────────────────────────────
+  async function loadHistory() {
+    document.getElementById('history-content').innerHTML = `
+      <div class="history-empty"><div class="history-empty-icon">⏳</div><div>Loading…</div></div>
+    `;
+    try {
+      const resp = await fetch('/history');
+      const entries = await resp.json();
+      renderHistory(entries);
+    } catch (err) {
+      document.getElementById('history-content').innerHTML = `
+        <div class="card error-card"><div class="error-title">Failed to load history</div><div class="error-detail">${esc(err.message)}</div></div>
+      `;
+    }
+  }
+
+  function renderHistory(entries) {
+    if (!entries || entries.length === 0) {
+      document.getElementById('history-content').innerHTML = `
+        <div class="history-empty">
+          <div class="history-empty-icon">🕳</div>
+          <div>No past analyses yet.</div>
+          <p style="margin-top:8px;font-size:13px">Run your first hypothesis test to see results here.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const items = entries.map(e => {
+      const date = e.generated_at ? new Date(e.generated_at).toLocaleString() : '';
+      const vClass = verdictClass(e.verdict);
+      const vLabel = verdictLabel(e.verdict);
+      const confLabel = e.confidence ? confidenceLabel(e.confidence) : '';
+      const project = e.project ? `📁 ${esc(e.project)}` : '';
+      const traces = e.traces_analyzed ? `📊 ${e.traces_analyzed} traces` : '';
+
+      return `
+        <div class="history-item" onclick="openHistoryEntry('${esc(e.filename)}')">
+          <div class="history-item-main">
+            <div class="history-hypothesis">${esc(e.hypothesis || '(no hypothesis)')}</div>
+            <div class="history-meta">
+              <span class="verdict-badge ${vClass}" style="font-size:11px;padding:3px 10px">${vLabel}</span>
+              ${confLabel ? `<span>${confLabel}</span>` : ''}
+              ${project}
+              ${traces}
+              ${date ? `<span>${date}</span>` : ''}
+            </div>
+          </div>
+          <button class="history-delete" onclick="deleteHistoryEntry(event, '${esc(e.filename)}')">Delete</button>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('history-content').innerHTML = `<div class="history-list">${items}</div>`;
+  }
+
+  async function openHistoryEntry(filename) {
+    try {
+      const resp = await fetch(`/history/${encodeURIComponent(filename)}`);
+      const data = await resp.json();
+      renderResults(data);
+      showScreen('screen-results');
+    } catch (err) {
+      alert('Failed to load history entry: ' + err.message);
+    }
+  }
+
+  async function deleteHistoryEntry(event, filename) {
+    event.stopPropagation();
+    if (!confirm('Delete this history entry?')) return;
+    try {
+      await fetch(`/history/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+      await loadHistory();
+    } catch (err) {
+      alert('Failed to delete: ' + err.message);
+    }
   }
 
   function renderError(msg) {
