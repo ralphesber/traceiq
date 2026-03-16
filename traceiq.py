@@ -114,6 +114,7 @@ def fetch_runs(
             "session": [session_id],
             "start_time": start_time.isoformat(),
             "end_time": end_time.isoformat(),
+            "filter": "eq(is_root, true)",
             "limit": 100,
         }
         if cursor:
@@ -543,6 +544,7 @@ def analyze_hypothesis_with_llm(
     before_traces: list[dict],
     after_traces: list[dict],
     prompt_change_date: str | None,
+    split_mode: str = "prompt_change",
 ) -> dict:
     """
     Use LLM (OpenAI or Anthropic) to analyze the hypothesis across before/after traces.
@@ -556,6 +558,63 @@ def analyze_hypothesis_with_llm(
         print("[TraceIQ] Error: No LLM API key found. Set OPENAI_API_KEY or ANTHROPIC_API_KEY.", file=sys.stderr)
         sys.exit(1)
 
+    # ── "No split" mode: analyze all traces as a single group ─────────────
+    if split_mode == "none":
+        all_traces = after_traces  # caller puts all traces here when split_mode="none"
+        all_summaries = [build_trace_summary_for_hypothesis(r) for r in all_traces]
+        all_json = json.dumps(all_summaries, indent=2)
+
+        prompt_text = f"""You are analyzing AI agent traces to test a hypothesis.
+
+HYPOTHESIS: "{hypothesis}"
+
+You are analyzing ALL traces as one group (no before/after split was requested).
+
+ALL TRACES ({len(all_traces)} traces):
+{all_json}
+
+Your task:
+1. First assess if the hypothesis is specific and testable with the given data. If it is too vague or broad (e.g. "is the agent performing well?"), set verdict to "too_broad" and skip the evidence analysis — instead provide good next_steps to narrow it.
+2. If the hypothesis is specific but the data is insufficient to reach a conclusion (e.g. very few relevant traces), set verdict to "needs_more_data".
+3. Otherwise, look for evidence of the pattern described in the hypothesis across all the traces.
+4. Look at the actual content: input lengths, output lengths, reasoning quality, and any correlations.
+5. Determine if the hypothesis is supported, not_supported, inconclusive, needs_more_data, or too_broad.
+6. Pick 2-3 example traces that best illustrate your finding (skip if too_broad).
+7. Always provide 2-3 specific, actionable next_steps — even for supported verdicts (suggest how to go deeper).
+8. Always provide data_gaps — what is missing that would make this more conclusive.
+
+Be specific and evidence-based. Reference actual trace data (lengths, content snippets) to support your conclusions.
+
+Respond ONLY with valid JSON matching this exact schema:
+{{
+  "verdict": "supported|not_supported|inconclusive|needs_more_data|too_broad",
+  "confidence": "high|medium|low",
+  "summary": "Plain language explanation (2-4 sentences) of what you found, with specific evidence. If too_broad, explain why and what would be a better hypothesis.",
+  "next_steps": [
+    "Specific actionable follow-up investigation 1",
+    "Specific actionable follow-up investigation 2",
+    "Specific actionable follow-up investigation 3"
+  ],
+  "data_gaps": "What is missing that would make this more conclusive",
+  "evidence": {{
+    "pattern_present": true,
+    "signal": "What pattern you observe across all traces (1-2 sentences with data)",
+    "example_traces": [
+      {{
+        "id": "trace_id",
+        "input_preview": "first 80 chars of input",
+        "output_preview": "first 120 chars of output",
+        "relevance": "why this trace is relevant to the hypothesis"
+      }}
+    ]
+  }}
+}}
+
+Note: For "too_broad" verdict, evidence can be null or an empty object. Focus on providing rich next_steps instead."""
+
+        return _call_llm(prompt_text, openai_key, anthropic_key)
+
+    # ── Before/After mode (prompt_change or time_split) ───────────────────
     # Build trace summaries
     before_summaries = [build_trace_summary_for_hypothesis(r) for r in before_traces]
     after_summaries = [build_trace_summary_for_hypothesis(r) for r in after_traces]
@@ -628,6 +687,11 @@ Respond ONLY with valid JSON matching this exact schema:
 
 Note: For "too_broad" verdict, before_change and after_change can be null or empty objects. Focus on providing rich next_steps instead."""
 
+    return _call_llm(prompt_text, openai_key, anthropic_key)
+
+
+def _call_llm(prompt_text: str, openai_key: str | None, anthropic_key: str | None) -> dict:
+    """Shared LLM call helper — tries OpenAI first, falls back to Anthropic."""
     if openai_key:
         print(f"[TraceIQ] Calling OpenAI (gpt-4o) for hypothesis analysis...", file=sys.stderr)
         try:
@@ -676,17 +740,17 @@ def run_hypothesis_mode(
     hypothesis: str,
     days: int = 30,
     max_traces: int = 30,
+    split_mode: str = "prompt_change",
 ) -> dict:
     """
     Full hypothesis testing pipeline:
     1. Fetch traces
-    2. Detect prompt change date
-    3. Split into before/after
-    4. Sample up to max_traces
-    5. LLM analysis
-    6. Write hypothesis_output.json
+    2. Determine split based on split_mode
+    3. Sample up to max_traces
+    4. LLM analysis
+    5. Write hypothesis_output.json
     """
-    print(f"[TraceIQ] Hypothesis mode: '{hypothesis}'", file=sys.stderr)
+    print(f"[TraceIQ] Hypothesis mode: '{hypothesis}' | split_mode={split_mode}", file=sys.stderr)
 
     # Fetch traces
     runs = fetch_runs(api_key, project, days=days)
@@ -696,64 +760,121 @@ def run_hypothesis_mode(
 
     print(f"[TraceIQ] Fetched {len(runs)} total runs", file=sys.stderr)
 
-    # Try to get prompt change date from LangSmith commits API
-    prompt_change_dt = None
-    prompt_change_date = None
-    split_method = "temporal_midpoint"  # default
-
-    commits = fetch_prompt_commits(api_key, project)
-    if commits and len(commits) >= 2:
-        # Most recent commit date
-        last_commit = commits[-1]
-        created_at = last_commit.get("created_at", "")
-        if created_at:
-            try:
-                prompt_change_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-                if prompt_change_dt.tzinfo is None:
-                    prompt_change_dt = prompt_change_dt.replace(tzinfo=timezone.utc)
-                prompt_change_date = prompt_change_dt.strftime("%Y-%m-%d")
-                split_method = "prompt_commits_api"
-                print(f"[TraceIQ] Prompt change from commits API: {prompt_change_date}", file=sys.stderr)
-            except ValueError:
-                pass
-
-    # Fall back to hash-based detection from runs
-    if not prompt_change_dt:
-        prompt_change_dt = detect_prompt_change_from_runs(runs)
-        if prompt_change_dt:
-            prompt_change_date = prompt_change_dt.strftime("%Y-%m-%d")
-            split_method = "hash_detection"
-            print(f"[TraceIQ] Prompt change detected from traces: {prompt_change_date}", file=sys.stderr)
-
     # Sort runs by time
     sorted_runs = sorted(
         [r for r in runs if get_run_date(r)],
         key=lambda r: get_run_date(r),
     )
 
-    # Split into before/after
-    if prompt_change_dt:
-        before_runs = [r for r in sorted_runs if get_run_date(r) < prompt_change_dt]
-        after_runs = [r for r in sorted_runs if get_run_date(r) >= prompt_change_dt]
-    else:
-        # No change detected — split at midpoint
-        mid = len(sorted_runs) // 2
-        before_runs = sorted_runs[:mid]
-        after_runs = sorted_runs[mid:]
-        print(f"[TraceIQ] No prompt change detected, splitting at temporal midpoint", file=sys.stderr)
-
-    print(f"[TraceIQ] Before: {len(before_runs)} traces, After: {len(after_runs)} traces", file=sys.stderr)
-
-    # Sample up to max_traces/2 from each period (balanced sample)
-    per_period = max_traces // 2
-
     def sample_period(period_runs: list[dict], n: int) -> list[dict]:
         """Sample n traces from a period, preferring recent and diverse ones."""
         if len(period_runs) <= n:
             return period_runs
-        # Take most recent
         return sorted(period_runs, key=lambda r: get_run_date(r) or datetime.min.replace(tzinfo=timezone.utc), reverse=True)[:n]
 
+    # ── No-split mode: analyze all traces as one group ────────────────────
+    if split_mode == "none":
+        all_sample = sample_period(sorted_runs, max_traces)
+        total_analyzed = len(all_sample)
+        print(f"[TraceIQ] No-split mode: analyzing {total_analyzed} traces as one group", file=sys.stderr)
+
+        llm_result = analyze_hypothesis_with_llm(
+            hypothesis=hypothesis,
+            before_traces=[],
+            after_traces=all_sample,
+            prompt_change_date=None,
+            split_mode="none",
+        )
+
+        output = {
+            "hypothesis": hypothesis,
+            "verdict": llm_result.get("verdict", "inconclusive"),
+            "confidence": llm_result.get("confidence", "low"),
+            "summary": llm_result.get("summary", ""),
+            "next_steps": llm_result.get("next_steps", []),
+            "data_gaps": llm_result.get("data_gaps", ""),
+            "evidence": llm_result.get("evidence", {"pattern_present": False, "example_traces": [], "signal": ""}),
+            "before_change": None,
+            "after_change": None,
+            "prompt_change_date": None,
+            "split_mode": "none",
+            "split_method": "none",
+            "traces_analyzed": total_analyzed,
+            "project": project,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        output_path = Path(__file__).parent / "hypothesis_output.json"
+        with open(output_path, "w") as f:
+            json.dump(output, f, indent=2, default=str)
+        print(f"[TraceIQ] Results written to hypothesis_output.json", file=sys.stderr)
+        return output
+
+    # ── Determine split point ─────────────────────────────────────────────
+    prompt_change_dt = None
+    prompt_change_date = None
+    split_method = "temporal_midpoint"
+
+    if split_mode == "prompt_change":
+        # Try commits API first
+        commits = fetch_prompt_commits(api_key, project)
+        if commits and len(commits) >= 2:
+            last_commit = commits[-1]
+            created_at = last_commit.get("created_at", "")
+            if created_at:
+                try:
+                    prompt_change_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                    if prompt_change_dt.tzinfo is None:
+                        prompt_change_dt = prompt_change_dt.replace(tzinfo=timezone.utc)
+                    prompt_change_date = prompt_change_dt.strftime("%Y-%m-%d")
+                    split_method = "prompt_commits_api"
+                    print(f"[TraceIQ] Prompt change from commits API: {prompt_change_date}", file=sys.stderr)
+                except ValueError:
+                    pass
+
+        # Fall back to hash-based detection
+        if not prompt_change_dt:
+            prompt_change_dt = detect_prompt_change_from_runs(runs)
+            if prompt_change_dt:
+                prompt_change_date = prompt_change_dt.strftime("%Y-%m-%d")
+                split_method = "hash_detection"
+                print(f"[TraceIQ] Prompt change detected from traces: {prompt_change_date}", file=sys.stderr)
+
+        # Error if still not found
+        if not prompt_change_dt:
+            error_output = {
+                "error": "No prompt change detected in the traces. Try 'Time split' or 'No split' mode instead.",
+                "hypothesis": hypothesis,
+                "verdict": "error",
+                "split_mode": split_mode,
+                "project": project,
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            output_path = Path(__file__).parent / "hypothesis_output.json"
+            with open(output_path, "w") as f:
+                json.dump(error_output, f, indent=2, default=str)
+            print(f"[TraceIQ] No prompt change found — returning error", file=sys.stderr)
+            return error_output
+
+    elif split_mode == "time_split":
+        # Always use temporal midpoint
+        mid = len(sorted_runs) // 2
+        split_method = "temporal_midpoint"
+        print(f"[TraceIQ] Time-split mode: splitting at temporal midpoint", file=sys.stderr)
+
+    # ── Split into before/after ───────────────────────────────────────────
+    if prompt_change_dt:
+        before_runs = [r for r in sorted_runs if get_run_date(r) < prompt_change_dt]
+        after_runs = [r for r in sorted_runs if get_run_date(r) >= prompt_change_dt]
+    else:
+        mid = len(sorted_runs) // 2
+        before_runs = sorted_runs[:mid]
+        after_runs = sorted_runs[mid:]
+        print(f"[TraceIQ] Splitting at temporal midpoint", file=sys.stderr)
+
+    print(f"[TraceIQ] Before: {len(before_runs)} traces, After: {len(after_runs)} traces", file=sys.stderr)
+
+    per_period = max_traces // 2
     before_sample = sample_period(before_runs, per_period)
     after_sample = sample_period(after_runs, per_period)
 
@@ -766,6 +887,7 @@ def run_hypothesis_mode(
         before_traces=before_sample,
         after_traces=after_sample,
         prompt_change_date=prompt_change_date,
+        split_mode=split_mode,
     )
 
     # Build output
@@ -778,7 +900,9 @@ def run_hypothesis_mode(
         "data_gaps": llm_result.get("data_gaps", ""),
         "before_change": llm_result.get("before_change", {"pattern_present": False, "example_traces": [], "signal": ""}),
         "after_change": llm_result.get("after_change", {"pattern_present": False, "example_traces": [], "signal": ""}),
+        "evidence": None,
         "prompt_change_date": prompt_change_date,
+        "split_mode": split_mode,
         "split_method": split_method,
         "traces_analyzed": total_analyzed,
         "project": project,
@@ -1139,11 +1263,27 @@ def main():
     parser.add_argument("--output", choices=["markdown", "json"], default="json", help="Output format for metrics mode")
     parser.add_argument("--since", type=str, default=None, help="ISO timestamp for diff mode")
     parser.add_argument("--mock-data", type=str, help="Path to mock data JSON (for testing)")
+    parser.add_argument("--split-mode", choices=["prompt_change", "time_split", "none"], default="prompt_change",
+                        help="How to split traces for hypothesis analysis (default: prompt_change)")
 
     args = parser.parse_args()
     MODEL_COSTS = load_cost_model()
 
-    # Load runs
+    # Hypothesis mode — fetch happens inside run_hypothesis_mode, skip double-fetch
+    if args.hypothesis:
+        api_key = get_api_key(args.api_key)
+        output = run_hypothesis_mode(
+            api_key=api_key,
+            project=args.project,
+            hypothesis=args.hypothesis,
+            days=args.days,
+            max_traces=100,
+            split_mode=args.split_mode,
+        )
+        print(json.dumps(output, indent=2, default=str))
+        return
+
+    # Load runs (insights / metrics mode only)
     if args.mock_data:
         with open(args.mock_data) as f:
             runs = json.load(f)
@@ -1157,18 +1297,6 @@ def main():
         sys.exit(1)
 
     print(f"[TraceIQ] Fetched {len(runs)} total runs", file=sys.stderr)
-
-    # Hypothesis mode
-    if args.hypothesis:
-        output = run_hypothesis_mode(
-            api_key=api_key,
-            project=args.project,
-            hypothesis=args.hypothesis,
-            days=args.days,
-            max_traces=30,
-        )
-        print(json.dumps(output, indent=2, default=str))
-        return
 
     # Parse --since
     since_ts: datetime | None = None
