@@ -467,6 +467,18 @@
       background: var(--text);
       color: white;
     }
+    .seg-btn.deep-analysis {
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .seg-btn.deep-analysis.active {
+      background: var(--accent);
+      color: white;
+    }
+    .seg-btn.deep-analysis:hover:not(.active) {
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+      color: var(--accent);
+    }
 
     /* ── History screen ─────────────────────────────────────────────── */
     .history-list { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
@@ -620,6 +632,7 @@
           <button class="seg-btn active" data-value="prompt_change" onclick="setSplitMode(this)">Prompt change</button>
           <button class="seg-btn" data-value="time_split" onclick="setSplitMode(this)">Time split</button>
           <button class="seg-btn" data-value="none" onclick="setSplitMode(this)">No split</button>
+          <button class="seg-btn deep-analysis" data-value="agent" onclick="setSplitMode(this)" title="🔍 Deep analysis: uses an AI agent with tool-calling to investigate iteratively. Slower and uses more API calls than standard modes.">🔍 Deep analysis</button>
         </div>
       </div>
 
@@ -967,6 +980,7 @@
   function renderResults(data) {
     const splitMode = data.split_mode || 'prompt_change';
     const isNoSplit = splitMode === 'none';
+    const isAgentMode = splitMode === 'agent';
 
     const beforeLabel = data.prompt_change_date
       ? `Before ${data.prompt_change_date}`
@@ -976,7 +990,7 @@
       : 'Second half';
 
     const isDirectional = data.verdict === 'needs_more_data' || data.verdict === 'too_broad';
-    const hasComparison = !isNoSplit && data.before_change && data.after_change &&
+    const hasComparison = !isNoSplit && !isAgentMode && data.before_change && data.after_change &&
       (data.before_change.signal || (data.before_change.example_traces && data.before_change.example_traces.length > 0));
 
     const heroNextSteps = isDirectional
@@ -993,12 +1007,14 @@
       </div>
     ` : '';
 
-    const evidenceSection = (!isDirectional && isNoSplit && data.evidence)
+    const evidenceSection = (!isDirectional && (isNoSplit || isAgentMode) && data.evidence)
       ? renderEvidenceCard(data.evidence)
       : '';
 
     // Split mode meta label
-    const splitModeLabel = isNoSplit
+    const splitModeLabel = isAgentMode
+      ? '<span class="meta-item">🔍 Deep analysis — agentic iterative investigation</span>'
+      : isNoSplit
       ? '<span class="meta-item">🔀 No split — all traces analyzed as one group</span>'
       : (data.prompt_change_date
           ? `<span class="meta-item">🔄 Prompt changed ${esc(data.prompt_change_date)}</span>`

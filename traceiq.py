@@ -1263,8 +1263,8 @@ def main():
     parser.add_argument("--output", choices=["markdown", "json"], default="json", help="Output format for metrics mode")
     parser.add_argument("--since", type=str, default=None, help="ISO timestamp for diff mode")
     parser.add_argument("--mock-data", type=str, help="Path to mock data JSON (for testing)")
-    parser.add_argument("--split-mode", choices=["prompt_change", "time_split", "none"], default="prompt_change",
-                        help="How to split traces for hypothesis analysis (default: prompt_change)")
+    parser.add_argument("--split-mode", choices=["prompt_change", "time_split", "none", "agent"], default="prompt_change",
+                        help="How to split traces for hypothesis analysis (default: prompt_change). Use 'agent' for deep agentic analysis.")
 
     args = parser.parse_args()
     MODEL_COSTS = load_cost_model()
@@ -1272,6 +1272,28 @@ def main():
     # Hypothesis mode — fetch happens inside run_hypothesis_mode, skip double-fetch
     if args.hypothesis:
         api_key = get_api_key(args.api_key)
+
+        # Agent mode: use deepagents SDK for iterative investigation
+        if args.split_mode == "agent":
+            try:
+                from agent.hypothesis_agent import run_hypothesis_agent
+            except ImportError as e:
+                print(f"[TraceIQ] Error: could not import agent module: {e}", file=sys.stderr)
+                sys.exit(1)
+            output = run_hypothesis_agent(
+                api_key=api_key,
+                project=args.project,
+                hypothesis=args.hypothesis,
+                days=args.days,
+                max_traces=100,
+            )
+            output_path = Path(__file__).parent / "hypothesis_output.json"
+            with open(output_path, "w") as f:
+                json.dump(output, f, indent=2, default=str)
+            print(f"[TraceIQ] Agent results written to hypothesis_output.json", file=sys.stderr)
+            print(json.dumps(output, indent=2, default=str))
+            return
+
         output = run_hypothesis_mode(
             api_key=api_key,
             project=args.project,

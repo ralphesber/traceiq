@@ -55,7 +55,7 @@ def analyze():
     days = int(data.get("days", 30))
     split_mode = data.get("split_mode", "prompt_change").strip()
 
-    if split_mode not in ("prompt_change", "time_split", "none"):
+    if split_mode not in ("prompt_change", "time_split", "none", "agent"):
         split_mode = "prompt_change"
 
     if not hypothesis:
