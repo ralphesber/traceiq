@@ -543,6 +543,183 @@
     .flex-between { display: flex; align-items: center; justify-content: space-between; }
     .text-muted { color: var(--text-muted); }
     .text-sm { font-size: 13px; }
+
+    /* ── Mode switcher tabs ─────────────────────────────────────────── */
+    .mode-tabs {
+      display: flex;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: var(--bg);
+      margin-bottom: 28px;
+    }
+    .mode-tab {
+      flex: 1;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 10px 20px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      border-right: 1px solid var(--border);
+    }
+    .mode-tab:last-child { border-right: none; }
+    .mode-tab:hover { background: var(--surface); color: var(--text); }
+    .mode-tab.active { background: var(--text); color: white; }
+
+    /* ── Experiments screen ─────────────────────────────────────────── */
+    .exp-select-group { margin-bottom: 20px; }
+    .exp-select-group select {
+      font-family: inherit;
+      font-size: 15px;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.15s;
+      width: 100%;
+      cursor: pointer;
+    }
+    .exp-select-group select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+    .exp-select-group select:disabled { background: var(--bg); color: var(--text-light); cursor: not-allowed; }
+
+    /* ── Experiment results ─────────────────────────────────────────── */
+    .exp-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #eff6ff; border: 1px solid #bfdbfe;
+      color: var(--accent);
+      border-radius: 20px; padding: 4px 12px;
+      font-size: 12px; font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .scores-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin-top: 16px;
+    }
+    .scores-table th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .scores-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-light);
+      color: var(--text);
+    }
+    .scores-table tr:last-child td { border-bottom: none; }
+    .score-bar-wrap {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .score-bar-bg {
+      flex: 1; height: 6px;
+      background: var(--border-light);
+      border-radius: 3px; overflow: hidden;
+    }
+    .score-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: var(--accent);
+    }
+    .score-val { font-weight: 500; min-width: 36px; text-align: right; font-size: 13px; }
+    .score-weak { color: var(--red); }
+    .score-ok { color: var(--green); }
+
+    .pattern-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 12px;
+    }
+    .pattern-card:last-child { margin-bottom: 0; }
+    .pattern-header {
+      display: flex; align-items: flex-start; gap: 12px;
+      margin-bottom: 12px;
+    }
+    .pattern-metric-tag {
+      flex-shrink: 0;
+      font-size: 11px; font-weight: 600;
+      padding: 3px 10px; border-radius: 20px;
+      background: var(--red-bg); color: var(--red);
+      border: 1px solid #fecaca;
+    }
+    .pattern-title { font-size: 15px; font-weight: 500; color: var(--text); }
+    .pattern-freq { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .pattern-example {
+      background: var(--bg);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      margin-top: 10px;
+    }
+    .pattern-example-row {
+      display: grid; grid-template-columns: 56px 1fr; gap: 6px 10px;
+      margin-bottom: 8px;
+    }
+    .pattern-example-row:last-child { margin-bottom: 0; }
+    .pattern-ex-label {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.3px; color: var(--text-light); padding-top: 1px;
+    }
+    .pattern-ex-text { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+    .pattern-root-cause {
+      margin-top: 10px;
+      padding: 10px 14px;
+      background: #fffbeb; border: 1px solid #fde68a;
+      border-radius: var(--radius-sm);
+      font-size: 13px; color: #78350f; line-height: 1.6;
+    }
+    .pattern-root-cause strong { font-weight: 600; }
+
+    .rec-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 12px;
+      display: flex; align-items: flex-start; gap: 16px;
+    }
+    .rec-card:last-child { margin-bottom: 0; }
+    .rec-num {
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      background: var(--text);
+      color: white;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700;
+    }
+    .rec-body { flex: 1; min-width: 0; }
+    .rec-change { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+    .rec-rationale { font-size: 14px; color: var(--text-muted); line-height: 1.6; margin-bottom: 6px; }
+    .rec-impact {
+      font-size: 12px; font-weight: 500; color: var(--green);
+      display: flex; align-items: center; gap: 5px;
+    }
+
+    /* ── History type badge ─────────────────────────────────────────── */
+    .type-badge-exp {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.3px;
+      padding: 2px 8px; border-radius: 20px;
+      background: #eff6ff; color: var(--accent); border: 1px solid #bfdbfe;
+    }
+    .type-badge-hyp {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.3px;
+      padding: 2px 8px; border-radius: 20px;
+      background: var(--bg); color: var(--text-muted); border: 1px solid var(--border);
+    }
   </style>
 </head>
 <body>
@@ -554,11 +731,18 @@
       <div class="logo-mark">TQ</div>
       <div>
         <span class="logo-text">TraceIQ</span>
-        <span class="logo-sub">Hypothesis Testing</span>
+        <span class="logo-sub" id="logo-sub-connect">Hypothesis Testing</span>
       </div>
     </div>
 
-    <div class="card">
+    <!-- Mode tabs -->
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="tab-traces" onclick="switchMode('traces')">🔬 Traces</button>
+      <button class="mode-tab" id="tab-experiments" onclick="switchMode('experiments')">🧪 Experiments</button>
+    </div>
+
+    <!-- Traces connect card -->
+    <div id="connect-traces-card" class="card">
       <h1>Connect to LangSmith</h1>
       <p class="subtitle">Enter your API key and project name to get started.</p>
 
@@ -585,6 +769,76 @@
         <button class="btn btn-primary btn-lg btn-full" onclick="connect()">
           Connect →
         </button>
+      </div>
+
+      <p class="text-sm text-muted mt-12" style="text-align:center">
+        Your API key is used only for this session and never stored.
+      </p>
+    </div>
+
+    <!-- Experiments connect card -->
+    <div id="connect-experiments-card" class="card" style="display:none">
+      <h1>Improve my prompt</h1>
+      <p class="subtitle">Connect to LangSmith and select an experiment to get AI-powered prompt improvement recommendations.</p>
+
+      <div class="field">
+        <label class="label" for="exp-api-key">LangSmith API Key</label>
+        <input
+          type="password"
+          id="exp-api-key"
+          placeholder="lsv2_pt_..."
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="exp-select-group">
+        <label class="label" for="exp-dataset-select">Dataset</label>
+        <select id="exp-dataset-select" disabled onchange="onDatasetChange()">
+          <option value="">— connect to load datasets —</option>
+        </select>
+      </div>
+
+      <div class="exp-select-group">
+        <label class="label" for="exp-experiment-select">Experiment</label>
+        <select id="exp-experiment-select" disabled onchange="onExperimentChange()">
+          <option value="">— select a dataset first —</option>
+        </select>
+      </div>
+
+      <div class="field" id="exp-question-field" style="display:none">
+        <label class="label" for="exp-question-input">Your question</label>
+        <div id="exp-question-wrapper" style="position:relative">
+          <textarea
+            id="exp-question-input"
+            rows="3"
+            placeholder="e.g. why is marks_exact_match low? what's causing strictness issues? how can I improve overall scores?"
+            oninput="onQuestionInput()"
+            style="font-size:15px;line-height:1.6"
+          ></textarea>
+        </div>
+        <p class="text-sm text-muted mt-12">Ask a specific question about the experiment results. The agent will focus its investigation on your question.</p>
+      </div>
+
+      <div class="mt-24" style="display:flex;gap:12px;align-items:center">
+        <button class="btn btn-ghost" onclick="loadExpDatasets()" id="exp-connect-btn">
+          Load Datasets
+        </button>
+        <button class="btn btn-primary btn-lg" onclick="runExpAnalysis()" id="exp-analyse-btn" disabled>
+          <span>✨ Analyse</span>
+        </button>
+      </div>
+
+      <!-- Experiment loading state -->
+      <div id="exp-loading-card" class="loading-card mt-24" style="display:none;text-align:center;padding:40px 0 0">
+        <div class="spinner"></div>
+        <h2 style="margin-bottom:8px">Analysing experiment…</h2>
+        <p style="margin-bottom:24px;font-size:14px">This takes 1–3 minutes as the agent reads experiment rows.</p>
+        <ul class="loading-steps" id="exp-loading-steps">
+          <li id="exp-step-fetch" class="active"><span class="step-icon">⬇</span> Fetching experiment rows</li>
+          <li id="exp-step-patterns"><span class="step-icon">🔍</span> Identifying failure patterns</li>
+          <li id="exp-step-recs"><span class="step-icon">🧠</span> Generating recommendations</li>
+          <li id="exp-step-done"><span class="step-icon">✓</span> Done</li>
+        </ul>
       </div>
 
       <p class="text-sm text-muted mt-12" style="text-align:center">
@@ -678,10 +932,10 @@
         <div class="logo-mark">TQ</div>
         <div>
           <span class="logo-text">TraceIQ</span>
-          <span class="logo-sub">Hypothesis Testing</span>
+          <span class="logo-sub" id="results-logo-sub">Hypothesis Testing</span>
         </div>
       </div>
-      <button class="btn btn-ghost" onclick="showHypothesisScreen()">← New hypothesis</button>
+      <button class="btn btn-ghost" id="results-back-btn" onclick="showHypothesisScreen()">← New hypothesis</button>
     </div>
 
     <div id="results-content">
@@ -717,7 +971,21 @@
 
 <script>
   // ── State ────────────────────────────────────────────────────────
-  let state = { apiKey: '', project: '', hypothesis: '', result: null, splitMode: 'prompt_change' };
+  let state = {
+    apiKey: '', project: '', hypothesis: '', result: null, splitMode: 'prompt_change',
+    mode: 'traces', // 'traces' | 'experiments'
+    expApiKey: '', expDatasetId: '', expExperimentId: '',
+  };
+
+  // ── Mode switcher ─────────────────────────────────────────────────
+  function switchMode(mode) {
+    state.mode = mode;
+    document.getElementById('tab-traces').classList.toggle('active', mode === 'traces');
+    document.getElementById('tab-experiments').classList.toggle('active', mode === 'experiments');
+    document.getElementById('connect-traces-card').style.display = mode === 'traces' ? '' : 'none';
+    document.getElementById('connect-experiments-card').style.display = mode === 'experiments' ? '' : 'none';
+    document.getElementById('logo-sub-connect').textContent = mode === 'traces' ? 'Hypothesis Testing' : 'Experiments';
+  }
 
   // ── Persistence ──────────────────────────────────────────────────
   function saveCredentials(apiKey, project) {
@@ -770,6 +1038,9 @@
   function showHypothesisScreen() {
     document.getElementById('loading-card').style.display = 'none';
     resetLoadingSteps();
+    document.getElementById('results-logo-sub').textContent = 'Hypothesis Testing';
+    document.getElementById('results-back-btn').textContent = '← New hypothesis';
+    document.getElementById('results-back-btn').onclick = () => showHypothesisScreen();
     showScreen('screen-hypothesis');
   }
 
@@ -854,6 +1125,9 @@
 
       state.result = data;
       renderResults(data);
+      document.getElementById('results-logo-sub').textContent = 'Hypothesis Testing';
+      document.getElementById('results-back-btn').textContent = '← New hypothesis';
+      document.getElementById('results-back-btn').onclick = () => showHypothesisScreen();
       showScreen('screen-results');
 
     } catch (err) {
@@ -1081,6 +1355,28 @@
 
     const items = entries.map(e => {
       const date = e.generated_at ? new Date(e.generated_at).toLocaleString() : '';
+      const isExp = e.result_type === 'experiment_analysis';
+      const typeBadge = isExp
+        ? '<span class="type-badge-exp">Experiment</span>'
+        : '<span class="type-badge-hyp">Hypothesis</span>';
+
+      if (isExp) {
+        return `
+          <div class="history-item" onclick="openHistoryEntry('${esc(e.filename)}', true)">
+            <div class="history-item-main">
+              <div class="history-hypothesis">${esc(e.question || e.experiment_name || '(experiment)')}</div>
+              <div class="history-meta">
+                ${typeBadge}
+                ${e.experiment_name ? `<span>🧪 ${esc(e.experiment_name)}</span>` : ''}
+                ${e.dataset_name ? `<span>📊 ${esc(e.dataset_name)}</span>` : ''}
+                ${date ? `<span>${date}</span>` : ''}
+              </div>
+            </div>
+            <button class="history-delete" onclick="deleteHistoryEntry(event, '${esc(e.filename)}')">Delete</button>
+          </div>
+        `;
+      }
+
       const vClass = verdictClass(e.verdict);
       const vLabel = verdictLabel(e.verdict);
       const confLabel = e.confidence ? confidenceLabel(e.confidence) : '';
@@ -1088,10 +1384,11 @@
       const traces = e.traces_analyzed ? `📊 ${e.traces_analyzed} traces` : '';
 
       return `
-        <div class="history-item" onclick="openHistoryEntry('${esc(e.filename)}')">
+        <div class="history-item" onclick="openHistoryEntry('${esc(e.filename)}', false)">
           <div class="history-item-main">
             <div class="history-hypothesis">${esc(e.hypothesis || '(no hypothesis)')}</div>
             <div class="history-meta">
+              ${typeBadge}
               <span class="verdict-badge ${vClass}" style="font-size:11px;padding:3px 10px">${vLabel}</span>
               ${confLabel ? `<span>${confLabel}</span>` : ''}
               ${project}
@@ -1107,11 +1404,21 @@
     document.getElementById('history-content').innerHTML = `<div class="history-list">${items}</div>`;
   }
 
-  async function openHistoryEntry(filename) {
+  async function openHistoryEntry(filename, isExp) {
     try {
       const resp = await fetch(`/history/${encodeURIComponent(filename)}`);
       const data = await resp.json();
-      renderResults(data);
+      if (isExp || data.result_type === 'experiment_analysis') {
+        renderExpResults(data);
+        document.getElementById('results-logo-sub').textContent = 'Experiments';
+        document.getElementById('results-back-btn').textContent = '← History';
+        document.getElementById('results-back-btn').onclick = () => showHistoryScreen();
+      } else {
+        renderResults(data);
+        document.getElementById('results-logo-sub').textContent = 'Hypothesis Testing';
+        document.getElementById('results-back-btn').textContent = '← New hypothesis';
+        document.getElementById('results-back-btn').onclick = () => showHypothesisScreen();
+      }
       showScreen('screen-results');
     } catch (err) {
       alert('Failed to load history entry: ' + err.message);
@@ -1140,6 +1447,313 @@
 
   function esc(str) {
     return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Experiments flow ──────────────────────────────────────────────
+
+  async function loadExpDatasets() {
+    const apiKey = document.getElementById('exp-api-key').value.trim();
+    if (!apiKey) {
+      alert('Please enter your LangSmith API key first.');
+      return;
+    }
+    state.expApiKey = apiKey;
+    const btn = document.getElementById('exp-connect-btn');
+    btn.disabled = true;
+    btn.textContent = 'Loading…';
+
+    try {
+      const resp = await fetch(`/experiments/datasets?api_key=${encodeURIComponent(apiKey)}`);
+      const data = await resp.json();
+      if (!resp.ok || data.error) {
+        alert('Failed to load datasets: ' + (data.error || 'Unknown error'));
+        return;
+      }
+      const sel = document.getElementById('exp-dataset-select');
+      sel.innerHTML = '<option value="">— select a dataset —</option>';
+      data.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.id;
+        opt.textContent = `${d.name} (${d.session_count || 0} experiments)`;
+        sel.appendChild(opt);
+      });
+      sel.disabled = false;
+      btn.textContent = 'Reload';
+    } catch (err) {
+      alert('Error loading datasets: ' + err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function onDatasetChange() {
+    const datasetId = document.getElementById('exp-dataset-select').value;
+    if (!datasetId) {
+      document.getElementById('exp-experiment-select').innerHTML = '<option value="">— select a dataset first —</option>';
+      document.getElementById('exp-experiment-select').disabled = true;
+      document.getElementById('exp-analyse-btn').disabled = true;
+      return;
+    }
+    state.expDatasetId = datasetId;
+    const expSel = document.getElementById('exp-experiment-select');
+    expSel.innerHTML = '<option value="">Loading…</option>';
+    expSel.disabled = true;
+
+    try {
+      const resp = await fetch(`/experiments/list?api_key=${encodeURIComponent(state.expApiKey)}&dataset_id=${encodeURIComponent(datasetId)}`);
+      const data = await resp.json();
+      if (!resp.ok || data.error) {
+        expSel.innerHTML = '<option value="">Error loading experiments</option>';
+        return;
+      }
+      expSel.innerHTML = '<option value="">— select an experiment —</option>';
+      data.forEach(e => {
+        const opt = document.createElement('option');
+        opt.value = e.id;
+        const date = e.created_at ? new Date(e.created_at).toLocaleDateString() : '';
+        opt.textContent = `${e.name}${date ? ' (' + date + ')' : ''}`;
+        expSel.appendChild(opt);
+      });
+      expSel.disabled = false;
+    } catch (err) {
+      expSel.innerHTML = '<option value="">Error: ' + esc(err.message) + '</option>';
+    }
+  }
+
+  function onExperimentChange() {
+    const expId = document.getElementById('exp-experiment-select').value;
+    state.expExperimentId = expId;
+    // Show question field once experiment is selected
+    document.getElementById('exp-question-field').style.display = expId ? '' : 'none';
+    _updateExpAnalyseBtn();
+  }
+
+  function onQuestionInput() {
+    _updateExpAnalyseBtn();
+  }
+
+  function _updateExpAnalyseBtn() {
+    const expId = state.expExperimentId;
+    const question = document.getElementById('exp-question-input').value.trim();
+    document.getElementById('exp-analyse-btn').disabled = !(expId && question);
+  }
+
+  async function runExpAnalysis() {
+    const question = document.getElementById('exp-question-input').value.trim();
+    if (!state.expApiKey || !state.expDatasetId || !state.expExperimentId) {
+      alert('Please select a dataset and experiment first.');
+      return;
+    }
+    if (!question) {
+      alert('Please enter your question first.');
+      return;
+    }
+
+    // Show loading
+    document.getElementById('exp-loading-card').style.display = 'block';
+    document.getElementById('exp-analyse-btn').disabled = true;
+    document.getElementById('exp-connect-btn').disabled = true;
+    resetExpLoadingSteps();
+
+    // Animate steps
+    const stepTimings = [
+      { id: 'exp-step-fetch', delay: 2000 },
+      { id: 'exp-step-patterns', delay: 30000 },
+      { id: 'exp-step-recs', delay: 75000 },
+      { id: 'exp-step-done', delay: 120000 },
+    ];
+    stepTimings.forEach(({ id, delay }) => {
+      setTimeout(() => setExpStep(id), delay);
+    });
+
+    try {
+      const resp = await fetch('/experiments/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: state.expApiKey,
+          dataset_id: state.expDatasetId,
+          experiment_id: state.expExperimentId,
+          question: question,
+        }),
+      });
+      const data = await resp.json();
+
+      document.getElementById('exp-loading-card').style.display = 'none';
+      document.getElementById('exp-analyse-btn').disabled = false;
+      document.getElementById('exp-connect-btn').disabled = false;
+
+      if (!resp.ok || data.error) {
+        renderError(data.error || 'Unknown error occurred');
+        document.getElementById('results-logo-sub').textContent = 'Experiments';
+        document.getElementById('results-back-btn').textContent = '← New experiment';
+        document.getElementById('results-back-btn').onclick = () => showScreen('screen-connect');
+        showScreen('screen-results');
+        return;
+      }
+
+      state.result = data;
+      renderExpResults(data);
+      document.getElementById('results-logo-sub').textContent = 'Experiments';
+      document.getElementById('results-back-btn').textContent = '← New experiment';
+      document.getElementById('results-back-btn').onclick = () => showScreen('screen-connect');
+      showScreen('screen-results');
+
+    } catch (err) {
+      document.getElementById('exp-loading-card').style.display = 'none';
+      document.getElementById('exp-analyse-btn').disabled = false;
+      document.getElementById('exp-connect-btn').disabled = false;
+      renderError(err.message);
+      showScreen('screen-results');
+    }
+  }
+
+  function setExpStep(stepId) {
+    const steps = ['exp-step-fetch', 'exp-step-patterns', 'exp-step-recs', 'exp-step-done'];
+    steps.forEach((s, i) => {
+      const el = document.getElementById(s);
+      if (!el) return;
+      el.classList.remove('active', 'done');
+      if (s === stepId) el.classList.add('active');
+      else if (steps.indexOf(stepId) > i) el.classList.add('done');
+    });
+  }
+  function resetExpLoadingSteps() {
+    ['exp-step-fetch', 'exp-step-patterns', 'exp-step-recs', 'exp-step-done'].forEach(s => {
+      const el = document.getElementById(s);
+      if (el) el.classList.remove('active', 'done');
+    });
+    const first = document.getElementById('exp-step-fetch');
+    if (first) first.classList.add('active');
+  }
+
+  function renderExpResults(data) {
+    const overallScores = data.overall_scores || {};
+    const weakestMetrics = new Set(data.weakest_metrics || []);
+    const patterns = data.failure_patterns || [];
+    const recs = data.recommendations || [];
+
+    // Scores table
+    const sortedMetrics = Object.entries(overallScores).sort((a, b) => a[1] - b[1]);
+    const scoresHtml = sortedMetrics.length > 0 ? `
+      <table class="scores-table">
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>Avg Score</th>
+            <th style="width:200px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sortedMetrics.map(([metric, score]) => {
+            const pct = Math.min(100, Math.round(score * 100));
+            const isWeak = weakestMetrics.has(metric);
+            return `
+              <tr>
+                <td>${esc(metric)}${isWeak ? ' <span style="color:var(--red);font-size:11px">▼ weak</span>' : ''}</td>
+                <td class="${isWeak ? 'score-weak' : 'score-ok'}">${(score * 100).toFixed(1)}%</td>
+                <td>
+                  <div class="score-bar-wrap">
+                    <div class="score-bar-bg">
+                      <div class="score-bar-fill" style="width:${pct}%;background:${isWeak ? 'var(--red)' : 'var(--green)'}"></div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    ` : '<p class="text-sm text-muted" style="margin-top:12px">No scores data available.</p>';
+
+    // Patterns
+    const patternsHtml = patterns.map(p => `
+      <div class="pattern-card">
+        <div class="pattern-header">
+          <div>
+            <div class="pattern-title">${esc(p.pattern || '')}</div>
+            <div class="pattern-freq">${esc(p.frequency || '')}</div>
+          </div>
+          ${p.affected_metric ? `<span class="pattern-metric-tag">${esc(p.affected_metric)}</span>` : ''}
+        </div>
+        ${(p.example_input || p.example_output) ? `
+          <div class="pattern-example">
+            ${p.example_input ? `
+              <div class="pattern-example-row">
+                <span class="pattern-ex-label">Input</span>
+                <span class="pattern-ex-text">${esc(p.example_input)}</span>
+              </div>
+            ` : ''}
+            ${p.example_output ? `
+              <div class="pattern-example-row">
+                <span class="pattern-ex-label">Output</span>
+                <span class="pattern-ex-text">${esc(p.example_output)}</span>
+              </div>
+            ` : ''}
+          </div>
+        ` : ''}
+        ${p.root_cause ? `
+          <div class="pattern-root-cause"><strong>Root cause:</strong> ${esc(p.root_cause)}</div>
+        ` : ''}
+      </div>
+    `).join('');
+
+    // Recommendations
+    const recsHtml = recs.map((r, i) => `
+      <div class="rec-card">
+        <div class="rec-num">${r.priority || i + 1}</div>
+        <div class="rec-body">
+          <div class="rec-change">${esc(r.change || '')}</div>
+          ${r.rationale ? `<div class="rec-rationale">${esc(r.rationale)}</div>` : ''}
+          ${r.expected_impact ? `<div class="rec-impact">📈 ${esc(r.expected_impact)}</div>` : ''}
+        </div>
+      </div>
+    `).join('');
+
+    const html = `
+      <div class="card">
+        <div class="exp-badge">🧪 Experiment Analysis</div>
+        <div class="results-header">
+          <h1 style="margin-bottom:6px">${esc(data.experiment_name || 'Experiment')}</h1>
+          <p style="margin-bottom:${data.question ? '12px' : '24px'}">Dataset: ${esc(data.dataset_name || '')}</p>
+          ${data.question ? `
+            <div class="summary-text" style="margin-bottom:24px">
+              <em style="color:var(--text-muted);font-style:normal">Question: </em>${esc(data.question)}
+            </div>
+          ` : ''}
+        </div>
+
+        <h2 style="margin-bottom:4px">Overall Scores</h2>
+        <p style="font-size:13px;margin-bottom:0">Average eval scores across all experiment rows</p>
+        ${scoresHtml}
+
+        ${patterns.length > 0 ? `
+          <h2 style="margin-top:32px;margin-bottom:8px">Failure Patterns</h2>
+          <p style="font-size:13px;margin-bottom:16px">Patterns identified in rows with low scores</p>
+          ${patternsHtml}
+        ` : ''}
+
+        ${recs.length > 0 ? `
+          <h2 style="margin-top:32px;margin-bottom:8px">Recommendations</h2>
+          <p style="font-size:13px;margin-bottom:16px">Prioritized prompt improvements to increase eval scores</p>
+          ${recsHtml}
+        ` : ''}
+
+        ${data.raw_analysis ? `
+          <div class="card" style="margin-top:24px;background:var(--bg)">
+            <h3 style="margin-bottom:8px">Raw Analysis</h3>
+            <p style="font-size:13px;white-space:pre-wrap">${esc(data.raw_analysis)}</p>
+          </div>
+        ` : ''}
+
+        <div class="meta-row">
+          <span class="meta-item">🧪 ${esc(data.experiment_name || '')}</span>
+          <span class="meta-item">📊 ${esc(data.dataset_name || '')}</span>
+          ${data.generated_at ? `<span class="meta-item" style="margin-left:auto;color:var(--text-light)">${new Date(data.generated_at).toLocaleString()}</span>` : ''}
+        </div>
+      </div>
+    `;
+    document.getElementById('results-content').innerHTML = html;
   }
 </script>
 </body>

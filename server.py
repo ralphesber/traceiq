@@ -161,6 +161,7 @@ def list_history():
         try:
             with open(f) as fh:
                 data = json.load(fh)
+            result_type = data.get("result_type", "hypothesis")
             entries.append({
                 "filename": f.name,
                 "hypothesis": data.get("hypothesis", ""),
@@ -170,6 +171,11 @@ def list_history():
                 "project": data.get("project", ""),
                 "traces_analyzed": data.get("traces_analyzed", 0),
                 "split_mode": data.get("split_mode", ""),
+                "result_type": result_type,
+                # Experiment-specific fields
+                "experiment_name": data.get("experiment_name", ""),
+                "dataset_name": data.get("dataset_name", ""),
+                "question": data.get("question", ""),
             })
         except Exception:
             continue
@@ -196,6 +202,176 @@ def delete_history_entry(filename):
         path.unlink()
         print(f"[server] Deleted history entry: {filename}", flush=True)
     return jsonify({"ok": True})
+
+
+# ── Experiments ───────────────────────────────────────────────────────────
+
+def _ls_ssl_context():
+    """Return an SSL context that works on macOS."""
+    import ssl
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        pass
+    ctx = ssl.create_default_context()
+    try:
+        ctx.load_verify_locations("/etc/ssl/cert.pem")
+    except Exception:
+        pass
+    return ctx
+
+
+def _ls_get(api_key: str, path: str, params: dict = None):
+    """Make a GET request to the LangSmith API."""
+    import urllib.request
+    import urllib.parse
+    url = "https://api.smith.langchain.com/api/v1" + path
+    if params:
+        url += "?" + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, headers={"x-api-key": api_key})
+    with urllib.request.urlopen(req, timeout=30, context=_ls_ssl_context()) as resp:
+        return json.loads(resp.read().decode())
+
+
+@app.route("/experiments/datasets", methods=["GET"])
+def experiments_datasets():
+    api_key = request.args.get("api_key", "").strip()
+    if not api_key:
+        return jsonify({"error": "api_key query parameter is required"}), 400
+    try:
+        data = _ls_get(api_key, "/datasets")
+        if isinstance(data, list):
+            rows = data
+        elif isinstance(data, dict):
+            rows = data.get("datasets", data.get("results", []))
+        else:
+            rows = []
+        result = []
+        for d in rows:
+            result.append({
+                "id": d.get("id", ""),
+                "name": d.get("name", ""),
+                "example_count": d.get("example_count", 0),
+                "session_count": d.get("session_count", 0),
+                "last_session_start_time": d.get("last_session_start_time"),
+            })
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/experiments/list", methods=["GET"])
+def experiments_list():
+    api_key = request.args.get("api_key", "").strip()
+    dataset_id = request.args.get("dataset_id", "").strip()
+    if not api_key:
+        return jsonify({"error": "api_key query parameter is required"}), 400
+    if not dataset_id:
+        return jsonify({"error": "dataset_id query parameter is required"}), 400
+    try:
+        data = _ls_get(api_key, "/sessions", params={"reference_dataset_id": dataset_id})
+        if isinstance(data, list):
+            rows = data
+        elif isinstance(data, dict):
+            rows = data.get("sessions", data.get("results", []))
+        else:
+            rows = []
+        result = []
+        for s in rows:
+            result.append({
+                "id": s.get("id", ""),
+                "name": s.get("name", ""),
+                "created_at": s.get("start_time") or s.get("created_at"),
+            })
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/experiments/analyze", methods=["POST"])
+def experiments_analyze():
+    data = request.get_json(force=True)
+
+    api_key = data.get("api_key", "").strip()
+    dataset_id = data.get("dataset_id", "").strip()
+    experiment_id = data.get("experiment_id", "").strip()
+    question = data.get("question", "").strip()
+
+    if not api_key:
+        return jsonify({"error": "api_key is required"}), 400
+    if not dataset_id:
+        return jsonify({"error": "dataset_id is required"}), 400
+    if not experiment_id:
+        return jsonify({"error": "experiment_id is required"}), 400
+    if not question:
+        return jsonify({"error": "question is required"}), 400
+
+    env = os.environ.copy()
+    env["LANGSMITH_API_KEY"] = api_key
+
+    print(f"[server] Running experiment analysis: dataset={dataset_id} experiment={experiment_id}", flush=True)
+
+    # Run in a subprocess to avoid blocking and get clean env
+    import subprocess
+    script = f"""
+import sys, os, json
+sys.path.insert(0, {repr(str(BASE_DIR))})
+os.environ['ANTHROPIC_API_KEY'] = {repr(env.get('ANTHROPIC_API_KEY', ''))}
+from agent.prompt_advisor import run_prompt_advisor
+result = run_prompt_advisor(
+    api_key={repr(api_key)},
+    dataset_id={repr(dataset_id)},
+    experiment_id={repr(experiment_id)},
+    question={repr(question)},
+)
+print(json.dumps(result, default=str))
+"""
+
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=600,
+            env=env,
+            cwd=str(BASE_DIR),
+        )
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "Analysis timed out after 10 minutes"}), 504
+    except Exception as e:
+        return jsonify({"error": f"Failed to run analysis: {e}"}), 500
+
+    if proc.returncode != 0:
+        stderr = proc.stderr[-2000:] if proc.stderr else ""
+        return jsonify({"error": f"Analysis failed: {stderr}"}), 500
+
+    try:
+        output = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return jsonify({"error": "Analysis produced invalid output", "raw": proc.stdout[-1000:]}), 500
+
+    # Save to history with exp_ prefix
+    if not output.get("error"):
+        try:
+            _save_experiment_to_history(output)
+        except Exception as e:
+            print(f"[server] Warning: could not save experiment to history: {e}", flush=True)
+
+    return jsonify(output)
+
+
+def _save_experiment_to_history(result: dict) -> str:
+    """Save an experiment result to the history directory. Returns the filename."""
+    exp_name = result.get("experiment_name", "experiment")
+    slug = re.sub(r"[^a-zA-Z0-9]+", "-", exp_name[:40]).strip("-").lower() or "experiment"
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    filename = f"exp_{timestamp}_{slug}.json"
+    path = HISTORY_DIR / filename
+    with open(path, "w") as f:
+        json.dump(result, f, indent=2, default=str)
+    print(f"[server] Saved experiment to history: {filename}", flush=True)
+    return filename
 
 
 # ── Main ──────────────────────────────────────────────────────────────────
