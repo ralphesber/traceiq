@@ -735,12 +735,6 @@
       </div>
     </div>
 
-    <!-- Mode tabs -->
-    <div class="mode-tabs">
-      <button class="mode-tab active" id="tab-traces" onclick="switchMode('traces')">🔬 Traces</button>
-      <button class="mode-tab" id="tab-experiments" onclick="switchMode('experiments')">🧪 Experiments</button>
-    </div>
-
     <!-- Traces connect card -->
     <div id="connect-traces-card" class="card">
       <h1>Connect to LangSmith</h1>
@@ -772,74 +766,8 @@
       </div>
 
       <p class="text-sm text-muted mt-12" style="text-align:center">
-        Your API key is used only for this session and never stored.
+        or <a href="#" onclick="connectExperiments(); return false;" style="color:var(--accent)">analyse experiments →</a>
       </p>
-    </div>
-
-    <!-- Experiments connect card -->
-    <div id="connect-experiments-card" class="card" style="display:none">
-      <h1>Improve my prompt</h1>
-      <p class="subtitle">Connect to LangSmith and select an experiment to get AI-powered prompt improvement recommendations.</p>
-
-      <div class="field">
-        <label class="label" for="exp-api-key">LangSmith API Key</label>
-        <input
-          type="password"
-          id="exp-api-key"
-          placeholder="lsv2_pt_..."
-          autocomplete="off"
-        />
-      </div>
-
-      <div class="exp-select-group">
-        <label class="label" for="exp-dataset-select">Dataset</label>
-        <select id="exp-dataset-select" disabled onchange="onDatasetChange()">
-          <option value="">— connect to load datasets —</option>
-        </select>
-      </div>
-
-      <div class="exp-select-group">
-        <label class="label" for="exp-experiment-select">Experiment</label>
-        <select id="exp-experiment-select" disabled onchange="onExperimentChange()">
-          <option value="">— select a dataset first —</option>
-        </select>
-      </div>
-
-      <div class="field" id="exp-question-field" style="display:none">
-        <label class="label" for="exp-question-input">Your question</label>
-        <div id="exp-question-wrapper" style="position:relative">
-          <textarea
-            id="exp-question-input"
-            rows="3"
-            placeholder="e.g. why is marks_exact_match low? what's causing strictness issues? how can I improve overall scores?"
-            oninput="onQuestionInput()"
-            style="font-size:15px;line-height:1.6"
-          ></textarea>
-        </div>
-        <p class="text-sm text-muted mt-12">Ask a specific question about the experiment results. The agent will focus its investigation on your question.</p>
-      </div>
-
-      <div class="mt-24" style="display:flex;gap:12px;align-items:center">
-        <button class="btn btn-ghost" onclick="loadExpDatasets()" id="exp-connect-btn">
-          Load Datasets
-        </button>
-        <button class="btn btn-primary btn-lg" onclick="runExpAnalysis()" id="exp-analyse-btn" disabled>
-          <span>✨ Analyse</span>
-        </button>
-      </div>
-
-      <!-- Experiment loading state -->
-      <div id="exp-loading-card" class="loading-card mt-24" style="display:none;text-align:center;padding:40px 0 0">
-        <div class="spinner"></div>
-        <h2 style="margin-bottom:8px">Analysing experiment…</h2>
-        <p style="margin-bottom:24px;font-size:14px">This takes 1–3 minutes as the agent reads experiment rows.</p>
-        <ul class="loading-steps" id="exp-loading-steps">
-          <li id="exp-step-fetch" class="active"><span class="step-icon">⬇</span> Fetching experiment rows</li>
-          <li id="exp-step-patterns"><span class="step-icon">🔍</span> Identifying failure patterns</li>
-          <li id="exp-step-recs"><span class="step-icon">🧠</span> Generating recommendations</li>
-          <li id="exp-step-done"><span class="step-icon">✓</span> Done</li>
-        </ul>
-      </div>
 
       <p class="text-sm text-muted mt-12" style="text-align:center">
         Your API key is used only for this session and never stored.
@@ -857,6 +785,12 @@
         <span class="logo-text">TraceIQ</span>
         <span class="logo-sub">Hypothesis Testing</span>
       </div>
+    </div>
+
+    <!-- Mode tabs -->
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="tab-traces" onclick="switchMode('traces')">🔬 Traces</button>
+      <button class="mode-tab" id="tab-experiments" onclick="switchMode('experiments')">🧪 Experiments</button>
     </div>
 
     <div class="card">
@@ -924,6 +858,81 @@
   </div>
 </div>
 
+<!-- ── Screen: Experiments ───────────────────────────────────────── -->
+<div id="screen-experiment" class="screen">
+  <div class="container">
+    <div class="logo">
+      <div class="logo-mark">TQ</div>
+      <div>
+        <span class="logo-text">TraceIQ</span>
+        <span class="logo-sub">Experiments</span>
+      </div>
+    </div>
+
+    <!-- Mode tabs -->
+    <div class="mode-tabs">
+      <button class="mode-tab" id="tab-traces-exp" onclick="switchMode('traces')">🔬 Traces</button>
+      <button class="mode-tab active" id="tab-experiments-exp" onclick="switchMode('experiments')">🧪 Experiments</button>
+    </div>
+
+    <div class="card">
+      <h1>Improve my prompt</h1>
+      <p class="subtitle" style="margin-bottom:24px">Select an experiment to get AI-powered prompt improvement recommendations.</p>
+
+      <div class="exp-select-group">
+        <label class="label" for="exp-dataset-select">Dataset</label>
+        <select id="exp-dataset-select" disabled onchange="onDatasetChange()">
+          <option value="">— loading datasets —</option>
+        </select>
+      </div>
+
+      <div class="exp-select-group">
+        <label class="label" for="exp-experiment-select">Experiment</label>
+        <select id="exp-experiment-select" disabled onchange="onExperimentChange()">
+          <option value="">— select a dataset first —</option>
+        </select>
+      </div>
+
+      <div class="field" id="exp-question-field" style="display:none">
+        <label class="label" for="exp-question-input">Your question</label>
+        <div id="exp-question-wrapper" style="position:relative">
+          <textarea
+            id="exp-question-input"
+            rows="3"
+            placeholder="e.g. why is marks_exact_match low? what's causing strictness issues? how can I improve overall scores?"
+            oninput="onQuestionInput()"
+            style="font-size:15px;line-height:1.6"
+          ></textarea>
+        </div>
+        <p class="text-sm text-muted mt-12">Ask a specific question about the experiment results. The agent will focus its investigation on your question.</p>
+      </div>
+
+      <div class="mt-24" style="display:flex;gap:12px;align-items:center">
+        <button class="btn btn-ghost" onclick="reloadExpDatasets()" id="exp-connect-btn">
+          Reload Datasets
+        </button>
+        <button class="btn btn-primary btn-lg" onclick="runExpAnalysis()" id="exp-analyse-btn" disabled>
+          <span>✨ Analyse</span>
+        </button>
+        <button class="btn btn-ghost text-sm" onclick="disconnect()" style="margin-left:auto">Change API key</button>
+      </div>
+
+      <!-- Experiment loading state -->
+      <div id="exp-loading-card" class="loading-card mt-24" style="display:none;text-align:center;padding:40px 0 0">
+        <div class="spinner"></div>
+        <h2 style="margin-bottom:8px">Analysing experiment…</h2>
+        <p style="margin-bottom:24px;font-size:14px">This takes 1–3 minutes as the agent reads experiment rows.</p>
+        <ul class="loading-steps" id="exp-loading-steps">
+          <li id="exp-step-fetch" class="active"><span class="step-icon">⬇</span> Fetching experiment rows</li>
+          <li id="exp-step-patterns"><span class="step-icon">🔍</span> Identifying failure patterns</li>
+          <li id="exp-step-recs"><span class="step-icon">🧠</span> Generating recommendations</li>
+          <li id="exp-step-done"><span class="step-icon">✓</span> Done</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ── Screen 3: Results ─────────────────────────────────────────── -->
 <div id="screen-results" class="screen">
   <div class="container-wide">
@@ -974,17 +983,59 @@
   let state = {
     apiKey: '', project: '', hypothesis: '', result: null, splitMode: 'prompt_change',
     mode: 'traces', // 'traces' | 'experiments'
-    expApiKey: '', expDatasetId: '', expExperimentId: '',
+    expDatasetId: '', expExperimentId: '',
   };
 
   // ── Mode switcher ─────────────────────────────────────────────────
   function switchMode(mode) {
     state.mode = mode;
-    document.getElementById('tab-traces').classList.toggle('active', mode === 'traces');
-    document.getElementById('tab-experiments').classList.toggle('active', mode === 'experiments');
-    document.getElementById('connect-traces-card').style.display = mode === 'traces' ? '' : 'none';
-    document.getElementById('connect-experiments-card').style.display = mode === 'experiments' ? '' : 'none';
-    document.getElementById('logo-sub-connect').textContent = mode === 'traces' ? 'Hypothesis Testing' : 'Experiments';
+    // Update tabs on hypothesis screen
+    const tabTraces = document.getElementById('tab-traces');
+    const tabExp = document.getElementById('tab-experiments');
+    if (tabTraces) tabTraces.classList.toggle('active', mode === 'traces');
+    if (tabExp) tabExp.classList.toggle('active', mode === 'experiments');
+    // Update tabs on experiment screen
+    const tabTracesExp = document.getElementById('tab-traces-exp');
+    const tabExpExp = document.getElementById('tab-experiments-exp');
+    if (tabTracesExp) tabTracesExp.classList.toggle('active', mode === 'traces');
+    if (tabExpExp) tabExpExp.classList.toggle('active', mode === 'experiments');
+
+    if (mode === 'traces') {
+      showScreen('screen-hypothesis');
+    } else {
+      showScreen('screen-experiment');
+      // Auto-load datasets if we have an API key and none loaded yet
+      const sel = document.getElementById('exp-dataset-select');
+      if (state.apiKey && sel.options.length <= 1 && sel.options[0].value === '') {
+        loadExpDatasets();
+      }
+    }
+  }
+
+  // ── Connect Experiments (from connect screen) ─────────────────────
+  function connectExperiments() {
+    const apiKey = document.getElementById('api-key').value.trim();
+    if (!apiKey) {
+      alert('Please enter your LangSmith API key first.');
+      return;
+    }
+    state.apiKey = apiKey;
+    saveCredentials(apiKey, '');
+    // Reset dataset picker
+    const sel = document.getElementById('exp-dataset-select');
+    sel.innerHTML = '<option value="">— loading datasets —</option>';
+    sel.disabled = true;
+    document.getElementById('exp-experiment-select').innerHTML = '<option value="">— select a dataset first —</option>';
+    document.getElementById('exp-experiment-select').disabled = true;
+    document.getElementById('exp-question-field').style.display = 'none';
+    document.getElementById('exp-analyse-btn').disabled = true;
+    showScreen('screen-experiment');
+    loadExpDatasets();
+  }
+
+  // ── Reload datasets (from experiment screen) ──────────────────────
+  function reloadExpDatasets() {
+    loadExpDatasets();
   }
 
   // ── Persistence ──────────────────────────────────────────────────
@@ -1031,7 +1082,7 @@
   }
 
   function disconnect() {
-    state = { apiKey: '', project: '', hypothesis: '', result: null };
+    state = { apiKey: '', project: '', hypothesis: '', result: null, splitMode: 'prompt_change', mode: 'traces', expDatasetId: '', expExperimentId: '' };
     showScreen('screen-connect');
   }
 
@@ -1452,12 +1503,11 @@
   // ── Experiments flow ──────────────────────────────────────────────
 
   async function loadExpDatasets() {
-    const apiKey = document.getElementById('exp-api-key').value.trim();
+    const apiKey = state.apiKey;
     if (!apiKey) {
-      alert('Please enter your LangSmith API key first.');
+      alert('No API key found. Please connect first.');
       return;
     }
-    state.expApiKey = apiKey;
     const btn = document.getElementById('exp-connect-btn');
     btn.disabled = true;
     btn.textContent = 'Loading…';
@@ -1478,7 +1528,7 @@
         sel.appendChild(opt);
       });
       sel.disabled = false;
-      btn.textContent = 'Reload';
+      btn.textContent = 'Reload Datasets';
     } catch (err) {
       alert('Error loading datasets: ' + err.message);
     } finally {
@@ -1500,7 +1550,7 @@
     expSel.disabled = true;
 
     try {
-      const resp = await fetch(`/experiments/list?api_key=${encodeURIComponent(state.expApiKey)}&dataset_id=${encodeURIComponent(datasetId)}`);
+      const resp = await fetch(`/experiments/list?api_key=${encodeURIComponent(state.apiKey)}&dataset_id=${encodeURIComponent(datasetId)}`);
       const data = await resp.json();
       if (!resp.ok || data.error) {
         expSel.innerHTML = '<option value="">Error loading experiments</option>';
@@ -1540,7 +1590,7 @@
 
   async function runExpAnalysis() {
     const question = document.getElementById('exp-question-input').value.trim();
-    if (!state.expApiKey || !state.expDatasetId || !state.expExperimentId) {
+    if (!state.apiKey || !state.expDatasetId || !state.expExperimentId) {
       alert('Please select a dataset and experiment first.');
       return;
     }
@@ -1571,7 +1621,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          api_key: state.expApiKey,
+          api_key: state.apiKey,
           dataset_id: state.expDatasetId,
           experiment_id: state.expExperimentId,
           question: question,
@@ -1587,7 +1637,7 @@
         renderError(data.error || 'Unknown error occurred');
         document.getElementById('results-logo-sub').textContent = 'Experiments';
         document.getElementById('results-back-btn').textContent = '← New experiment';
-        document.getElementById('results-back-btn').onclick = () => showScreen('screen-connect');
+        document.getElementById('results-back-btn').onclick = () => showScreen('screen-experiment');
         showScreen('screen-results');
         return;
       }
@@ -1596,7 +1646,7 @@
       renderExpResults(data);
       document.getElementById('results-logo-sub').textContent = 'Experiments';
       document.getElementById('results-back-btn').textContent = '← New experiment';
-      document.getElementById('results-back-btn').onclick = () => showScreen('screen-connect');
+      document.getElementById('results-back-btn').onclick = () => showScreen('screen-experiment');
       showScreen('screen-results');
 
     } catch (err) {
