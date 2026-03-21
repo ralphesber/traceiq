@@ -720,6 +720,73 @@
       padding: 2px 8px; border-radius: 20px;
       background: var(--bg); color: var(--text-muted); border: 1px solid var(--border);
     }
+
+    /* ── Overview screen (sparkline design) ──────────────────────────── */
+    .overview-project-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 5px 14px;
+      font-size: 13px; color: var(--text-muted); margin-bottom: 28px;
+    }
+    .overview-project-pill .dot { width: 7px; height: 7px; background: var(--green); border-radius: 50%; }
+    .overview-main-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 36px 40px; margin-bottom: 20px;
+    }
+    .overview-headline { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 4px; }
+    .overview-sub { font-size: 14px; color: var(--text-muted); margin-bottom: 32px; }
+    .overview-chart-wrap { margin-bottom: 8px; }
+    .overview-chart-labels { display: flex; justify-content: space-between; margin-top: 4px; margin-bottom: 24px; }
+    .overview-chart-labels span { font-size: 11px; color: var(--text-light); }
+    .chart-legend { display: flex; gap: 14px; margin-bottom: 10px; flex-wrap: wrap; }
+    .chart-legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); }
+    .legend-line { width: 18px; height: 2px; background: var(--accent); border-radius: 2px; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .overview-stats {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      overflow: hidden; margin-bottom: 28px;
+    }
+    .stat-cell { padding: 20px 24px; border-right: 1px solid var(--border); }
+    .stat-cell:last-child { border-right: none; }
+    .stat-value { font-size: 30px; font-weight: 700; letter-spacing: -1px; line-height: 1.1; margin-bottom: 4px; }
+    .stat-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+    .stat-err { color: var(--red); }
+    .stat-ok { color: var(--green); }
+    .stat-dim { color: var(--text-light); font-size: 20px; }
+    .overview-section-title {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.6px;
+      text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px;
+    }
+    .changed-bullets { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-bottom: 28px; }
+    .changed-bullet { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--text); line-height: 1.5; }
+    .changed-icon { flex-shrink: 0; font-size: 13px; margin-top: 1px; }
+    .overview-cta-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .btn-ov-primary {
+      background: var(--text); color: white; font-family: inherit; font-size: 14px;
+      font-weight: 600; padding: 12px 22px; border-radius: var(--radius-sm); border: none; cursor: pointer; transition: background 0.15s;
+    }
+    .btn-ov-primary:hover { background: #27272a; }
+    .btn-ov-secondary {
+      background: transparent; color: var(--accent); font-family: inherit; font-size: 14px;
+      font-weight: 500; padding: 12px 22px; border-radius: var(--radius-sm);
+      border: 1px solid #bfdbfe; cursor: pointer; transition: all 0.15s;
+    }
+    .btn-ov-secondary:hover { background: var(--accent-light); }
+    .btn-ov-skip {
+      font-size: 13px; color: var(--text-light); cursor: pointer; background: none;
+      border: none; font-family: inherit; margin-left: auto; text-decoration: underline; text-underline-offset: 2px;
+    }
+    .btn-ov-skip:hover { color: var(--text-muted); }
+    .ov-skel {
+      background: linear-gradient(90deg, var(--border-light) 25%, #f8f8fa 50%, var(--border-light) 75%);
+      background-size: 200% 100%; animation: ov-shimmer 1.4s infinite; border-radius: 4px;
+    }
+    @keyframes ov-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .ov-skel-chart { height: 80px; border-radius: var(--radius-sm); margin-bottom: 16px; }
+    .ov-skel-stat { height: 52px; border-radius: 4px; }
+    .ov-skel-line { height: 13px; margin-bottom: 10px; }
   </style>
 </head>
 <body>
@@ -772,6 +839,37 @@
       <p class="text-sm text-muted mt-12" style="text-align:center">
         Your API key is used only for this session and never stored.
       </p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── Screen: Overview ─────────────────────────────────────────── -->
+<div id="screen-overview" class="screen">
+  <div class="container">
+    <div class="logo">
+      <div class="logo-mark">TQ</div>
+      <div>
+        <span class="logo-text">TraceIQ</span>
+        <span class="logo-sub">Project Overview</span>
+      </div>
+    </div>
+    <div class="overview-project-pill">
+      <span class="dot"></span>
+      <span id="overview-project-name">—</span>
+    </div>
+    <div class="overview-main-card">
+      <div id="overview-skeleton">
+        <div class="ov-skel ov-skel-chart"></div>
+        <div class="overview-stats" style="margin-bottom:24px">
+          <div class="stat-cell"><div class="ov-skel ov-skel-stat"></div></div>
+          <div class="stat-cell"><div class="ov-skel ov-skel-stat"></div></div>
+          <div class="stat-cell"><div class="ov-skel ov-skel-stat"></div></div>
+        </div>
+        <div class="ov-skel ov-skel-line" style="width:70%"></div>
+        <div class="ov-skel ov-skel-line" style="width:50%"></div>
+      </div>
+      <div id="overview-content" style="display:none"></div>
     </div>
   </div>
 </div>
@@ -1078,7 +1176,177 @@
     state.project = project;
     saveCredentials(apiKey, project);
     document.getElementById('connected-project').textContent = project;
-    showScreen('screen-hypothesis');
+    document.getElementById('overview-project-name').textContent = project;
+    showScreen('screen-overview');
+    loadOverview();
+  }
+
+  // ── Overview ──────────────────────────────────────────────────────────────────
+  async function loadOverview() {
+    document.getElementById('overview-skeleton').style.display = '';
+    document.getElementById('overview-content').style.display = 'none';
+    try {
+      const resp = await fetch(
+        `/overview?project=${encodeURIComponent(state.project)}&api_key=${encodeURIComponent(state.apiKey)}`
+      );
+      const data = await resp.json();
+      if (!resp.ok || data.error) {
+        renderOverviewError(data.error || 'Could not load overview');
+        return;
+      }
+      renderOverview(data);
+    } catch (err) {
+      renderOverviewError(err.message);
+    }
+  }
+
+  function renderOverviewError(msg) {
+    document.getElementById('overview-skeleton').style.display = 'none';
+    document.getElementById('overview-content').innerHTML = `
+      <p style="color:var(--text-muted);font-size:14px;margin-bottom:20px">
+        ⚠ Couldn't load overview: ${esc(msg)}
+      </p>
+      <div class="overview-cta-row">
+        <button class="btn-ov-primary" onclick="showHypothesisScreen()">Skip to analysis →</button>
+      </div>
+    `;
+    document.getElementById('overview-content').style.display = '';
+  }
+
+  function renderOverview(data) {
+    const stats = data.summary || {};
+    const daily = data.daily_stats || [];
+    const cmp = data.comparison || {};
+    const latestExp = data.latest_experiment;
+
+    const total = stats.total ?? 0;
+    const errRate = stats.error_rate ?? 0;
+    const errClass = errRate > 10 ? 'stat-err' : errRate > 5 ? '' : 'stat-ok';
+
+    let avgScore = null;
+    if (latestExp && latestExp.scores) {
+      const vals = Object.values(latestExp.scores).filter(v => typeof v === 'number');
+      if (vals.length > 0) {
+        avgScore = (vals.reduce((a, b) => a + b, 0) / vals.length * 100).toFixed(1) + '%';
+      }
+    }
+
+    const chartSvg = buildSparklineSVG(daily);
+
+    const bullets = [];
+    if (cmp.count_delta != null && Math.abs(cmp.count_delta) >= 10) {
+      const up = cmp.count_delta > 0;
+      bullets.push({
+        icon: up ? '📈' : '📉',
+        text: `Trace volume ${up ? 'up' : 'down'} ${Math.abs(cmp.count_delta)}% vs last week (${cmp.prev_total} → ${cmp.curr_total})`
+      });
+    }
+    if (cmp.error_rate_delta != null && Math.abs(cmp.error_rate_delta) >= 1) {
+      const worse = cmp.error_rate_delta > 0;
+      bullets.push({
+        icon: worse ? '🔴' : '✅',
+        text: `Error rate ${worse ? 'rose' : 'dropped'} from ${cmp.prev_error_rate}% to ${cmp.curr_error_rate}% (${worse ? '+' : ''}${cmp.error_rate_delta.toFixed(1)} pp)`
+      });
+    }
+
+    const changedSection = bullets.length > 0 ? `
+      <div class="overview-section-title">What changed this week</div>
+      <ul class="changed-bullets">
+        ${bullets.map(b => `<li class="changed-bullet"><span class="changed-icon">${b.icon}</span><span>${b.text}</span></li>`).join('')}
+      </ul>
+    ` : '';
+
+    const content = `
+      <h2 class="overview-headline">Your project at a glance</h2>
+      <p class="overview-sub">Last 7 days</p>
+      <div class="chart-legend">
+        <div class="chart-legend-item"><div class="legend-line"></div><span>Trace volume</span></div>
+        <div class="chart-legend-item"><div class="legend-dot" style="background:var(--green)"></div><span>Low errors</span></div>
+        <div class="chart-legend-item"><div class="legend-dot" style="background:var(--yellow)"></div><span>Some errors</span></div>
+        <div class="chart-legend-item"><div class="legend-dot" style="background:var(--red)"></div><span>High errors</span></div>
+      </div>
+      <div class="overview-chart-wrap">${chartSvg}</div>
+      <div class="overview-chart-labels">
+        ${daily.map(d => `<span>${fmtDay(d.date)}</span>`).join('')}
+      </div>
+      <div class="overview-stats">
+        <div class="stat-cell">
+          <div class="stat-value">${total.toLocaleString()}</div>
+          <div class="stat-label">Total Traces</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-value ${errClass}">${errRate}%</div>
+          <div class="stat-label">Error Rate</div>
+        </div>
+        <div class="stat-cell">
+          ${avgScore !== null
+            ? `<div class="stat-value stat-ok">${avgScore}</div><div class="stat-label">Avg Eval Score</div>`
+            : `<div class="stat-value stat-dim">—</div><div class="stat-label">No Experiments</div>`}
+        </div>
+      </div>
+      ${changedSection}
+      <div class="overview-cta-row">
+        <button class="btn-ov-primary" onclick="showHypothesisScreen()">Dig into traces →</button>
+        <button class="btn-ov-secondary" onclick="goToExperimentsFromOverview()">Improve my prompt →</button>
+        <button class="btn-ov-skip" onclick="showHypothesisScreen()">Skip to analysis →</button>
+      </div>
+    `;
+
+    document.getElementById('overview-skeleton').style.display = 'none';
+    document.getElementById('overview-content').innerHTML = content;
+    document.getElementById('overview-content').style.display = '';
+  }
+
+  function buildSparklineSVG(daily) {
+    const W = 680, H = 80, PAD = 12;
+    const counts = daily.map(d => d.count || 0);
+    const maxCount = Math.max(...counts, 1);
+    const n = daily.length;
+    if (n < 2) return '<p style="color:var(--text-light);font-size:13px">No data for chart.</p>';
+    const pts = daily.map((d, i) => {
+      const x = PAD + (i / (n - 1)) * (W - PAD * 2);
+      const y = PAD + (1 - (d.count || 0) / maxCount) * (H - PAD * 2);
+      return [x, y];
+    });
+    const polyPts = pts.map(p => p.map(v => v.toFixed(1)).join(',')).join(' ');
+    const areaPath = 'M' + pts[0][0].toFixed(1) + ',' + H +
+      pts.map(p => ' L' + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join('') +
+      ' L' + pts[pts.length-1][0].toFixed(1) + ',' + H + ' Z';
+    const dots = daily.map((d, i) => {
+      const x = pts[i][0].toFixed(1);
+      const y = pts[i][1].toFixed(1);
+      const ep = d.count > 0 ? d.errors / d.count * 100 : 0;
+      const col = ep > 10 ? 'var(--red)' : ep > 3 ? 'var(--yellow)' : 'var(--green)';
+      return '<circle cx="' + x + '" cy="' + y + '" r="4" fill="' + col + '" stroke="white" stroke-width="1.5"/>';
+    }).join('');
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" height="80" style="display:block">' +
+      '<defs><linearGradient id="ovAreaGrad" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="var(--accent)" stop-opacity="0.1"/>' +
+      '<stop offset="100%" stop-color="var(--accent)" stop-opacity="0.01"/>' +
+      '</linearGradient></defs>' +
+      '<path d="' + areaPath + '" fill="url(#ovAreaGrad)"/>' +
+      '<polyline points="' + polyPts + '" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
+      dots + '</svg>';
+  }
+
+  function fmtDay(dateStr) {
+    try { return new Date(dateStr + 'T12:00:00Z').toLocaleDateString('en', { weekday: 'short' }); }
+    catch(e) { return dateStr.slice(5); }
+  }
+
+  function goToExperimentsFromOverview() {
+    state.mode = 'experiments';
+    const tabTE = document.getElementById('tab-experiments');
+    const tabTT = document.getElementById('tab-traces');
+    if (tabTE) tabTE.classList.add('active');
+    if (tabTT) tabTT.classList.remove('active');
+    const tabTEE = document.getElementById('tab-experiments-exp');
+    const tabTTE = document.getElementById('tab-traces-exp');
+    if (tabTEE) tabTEE.classList.add('active');
+    if (tabTTE) tabTTE.classList.remove('active');
+    showScreen('screen-experiment');
+    const sel = document.getElementById('exp-dataset-select');
+    if (state.apiKey && sel.options.length <= 1 && sel.options[0].value === '') loadExpDatasets();
   }
 
   function disconnect() {
