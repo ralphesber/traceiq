@@ -787,6 +787,46 @@
     .ov-skel-chart { height: 80px; border-radius: var(--radius-sm); margin-bottom: 16px; }
     .ov-skel-stat { height: 52px; border-radius: 4px; }
     .ov-skel-line { height: 13px; margin-bottom: 10px; }
+
+    /* ── Suggestion chips ───────────────────────────────────────────── */
+    .suggestions-section {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-light);
+    }
+    .suggestions-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      color: var(--text-light);
+      margin-bottom: 8px;
+      display: block;
+    }
+    .suggestions-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .suggestion-chip {
+      display: inline-flex;
+      align-items: center;
+      font-family: inherit;
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      line-height: 1.4;
+    }
+    .suggestion-chip:hover {
+      background: var(--accent-light);
+      border-color: #bfdbfe;
+      color: var(--accent);
+    }
   </style>
 </head>
 <body>
@@ -910,6 +950,12 @@
             placeholder="the agent produces shorter reasoning when the student response is very short"
           ></textarea>
         </div>
+      </div>
+
+      <!-- Suggested questions -->
+      <div id="suggestions-section" class="suggestions-section" style="display:none">
+        <span class="suggestions-label">Try asking:</span>
+        <div class="suggestions-chips" id="suggestions-chips"></div>
       </div>
 
       <div class="split-mode-row">
@@ -1082,6 +1128,7 @@
     apiKey: '', project: '', hypothesis: '', result: null, splitMode: 'prompt_change',
     mode: 'traces', // 'traces' | 'experiments'
     expDatasetId: '', expExperimentId: '',
+    overviewData: null,
   };
 
   // ── Mode switcher ─────────────────────────────────────────────────
@@ -1214,6 +1261,9 @@
   }
 
   function renderOverview(data) {
+    // Store for suggestion generation on the hypothesis screen
+    state.overviewData = data;
+
     const stats = data.summary || {};
     const daily = data.daily_stats || [];
     const cmp = data.comparison || {};
@@ -1360,6 +1410,8 @@
     document.getElementById('results-logo-sub').textContent = 'Hypothesis Testing';
     document.getElementById('results-back-btn').textContent = '← New hypothesis';
     document.getElementById('results-back-btn').onclick = () => showHypothesisScreen();
+    // Render suggestions — uses overviewData if available, otherwise generic fallbacks
+    renderSuggestions(state.overviewData);
     showScreen('screen-hypothesis');
   }
 
@@ -1762,6 +1814,79 @@
         <div class="error-detail">${esc(msg)}</div>
       </div>
     `;
+  }
+
+  // ── Suggestion generation ─────────────────────────────────────────
+  function generateSuggestions(overviewData) {
+    const suggestions = [];
+    if (overviewData) {
+      const stats = overviewData.summary || {};
+      const cmp = overviewData.comparison || {};
+      const latestExp = overviewData.latest_experiment;
+
+      const errRate = stats.error_rate ?? 0;
+      const countDelta = cmp.count_delta ?? 0;
+      const errRateDelta = cmp.error_rate_delta ?? 0;
+
+      // Contextual suggestions based on data signals
+      if (errRate > 5) {
+        suggestions.push('What do failing traces have in common?');
+      }
+      if (countDelta < -20) {
+        suggestions.push('Why did trace volume drop significantly this week?');
+      }
+      if (errRateDelta > 20) {
+        suggestions.push('Why did the error rate spike compared to last week?');
+      }
+      if (latestExp && latestExp.scores) {
+        const entries = Object.entries(latestExp.scores).filter(([, v]) => typeof v === 'number');
+        if (entries.length > 0) {
+          const [worstMetric] = entries.sort((a, b) => a[1] - b[1])[0];
+          const expName = latestExp.name || latestExp.experiment_name || 'the experiment';
+          suggestions.push(`Why is ${worstMetric} scoring low in ${expName}?`);
+        }
+      }
+    }
+
+    // Always include generic fallbacks to reach at least 2 suggestions
+    const generics = [
+      'What patterns exist in low-quality outputs?',
+      'Are there systematic differences between high and low scoring responses?',
+    ];
+    for (const g of generics) {
+      if (suggestions.length >= 2) break;
+      if (!suggestions.includes(g)) suggestions.push(g);
+    }
+    // Ensure at least one generic is always present
+    if (!suggestions.some(s => generics.includes(s))) {
+      suggestions.push(generics[0]);
+    }
+
+    // Max 4, each max ~60 chars
+    return suggestions.slice(0, 4).map(s => s.length > 60 ? s.slice(0, 57) + '…' : s);
+  }
+
+  // Cache suggestions so chips can reference them by index
+  let _cachedSuggestions = [];
+
+  function renderSuggestions(overviewData) {
+    _cachedSuggestions = generateSuggestions(overviewData);
+    const section = document.getElementById('suggestions-section');
+    const chips = document.getElementById('suggestions-chips');
+    if (!section || !chips) return;
+
+    chips.innerHTML = _cachedSuggestions.map((s, i) => `
+      <button class="suggestion-chip" onclick="applySuggestion(${i})" type="button">${esc(s)}</button>
+    `).join('');
+    section.style.display = '';
+  }
+
+  function applySuggestion(index) {
+    const text = _cachedSuggestions[index];
+    if (!text) return;
+    const hypothesisInput = document.getElementById('hypothesis-text');
+    hypothesisInput.value = text;
+    hypothesisInput.focus();
   }
 
   function esc(str) {
