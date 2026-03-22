@@ -129,7 +129,7 @@ def run_prompt_advisor(
     except Exception:
         pass
 
-    print(f"[TraceIQ/advisor] Analyzing experiment '{experiment_name}' on dataset '{dataset_name}'...", file=sys.stderr)
+    print(f"[TraceIQ] Analyzing experiment '{experiment_name}' on dataset '{dataset_name}'...", file=sys.stderr, flush=True)
 
     tools = make_experiment_tools(api_key)
 
@@ -167,7 +167,7 @@ Steps:
 
 End with a JSON block matching the required schema."""
 
-    print(f"[TraceIQ/advisor] Starting agent investigation...", file=sys.stderr)
+    print(f"[TraceIQ] Starting agent investigation...", file=sys.stderr, flush=True)
 
     try:
         result = agent.invoke(
@@ -205,7 +205,7 @@ End with a JSON block matching the required schema."""
             final_content = content
             break
 
-    print(f"[TraceIQ/advisor] Agent finished. Extracting recommendations...", file=sys.stderr)
+    print(f"[TraceIQ] Agent finished. Extracting recommendations...", file=sys.stderr, flush=True)
 
     # Parse the JSON verdict from the final message
     parsed = _extract_json_result(final_content)
