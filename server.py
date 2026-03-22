@@ -43,6 +43,24 @@ def static_files(filename):
     return send_from_directory(str(BASE_DIR), filename)
 
 
+# ── SSE helpers ───────────────────────────────────────────────────────────
+
+def _parse_sse_line(line: str):
+    """Parse a stderr line from traceiq.py into an SSE event dict, or None to skip."""
+    line = line.strip()
+    if not line:
+        return None
+    if line.startswith("[TraceIQ]"):
+        text = line[len("[TraceIQ]"):].strip()
+        return {"type": "step", "text": text}
+    return None
+
+
+def _sse_event(data: dict) -> str:
+    """Format a dict as an SSE data line."""
+    return f"data: {json.dumps(data)}\n\n"
+
+
 # ── Analysis ──────────────────────────────────────────────────────────────
 
 @app.route("/analyze", methods=["POST"])
@@ -125,6 +143,103 @@ def analyze():
         return jsonify(output)
     except json.JSONDecodeError:
         return jsonify({"error": "Analysis produced invalid output", "raw": result.stdout[-1000:]}), 500
+
+
+@app.route("/analyze/stream", methods=["GET"])
+def analyze_stream():
+    """
+    GET /analyze/stream?hypothesis=...&project=...&api_key=...&days=...&split_mode=...
+    Streams real-time [TraceIQ] log lines as SSE step events.
+    Final result is emitted as a 'result' event.
+    """
+    hypothesis = request.args.get("hypothesis", "").strip()
+    api_key = request.args.get("api_key", "").strip()
+    project = request.args.get("project", "").strip()
+    days = int(request.args.get("days", 30))
+    split_mode = request.args.get("split_mode", "prompt_change").strip()
+
+    if not hypothesis:
+        return jsonify({"error": "hypothesis is required"}), 400
+    if not api_key:
+        return jsonify({"error": "api_key is required"}), 400
+    if not project:
+        return jsonify({"error": "project is required"}), 400
+    if split_mode not in ("prompt_change", "time_split", "none", "agent"):
+        split_mode = "prompt_change"
+
+    cmd = [
+        sys.executable, str(BASE_DIR / "traceiq.py"),
+        "--project", project,
+        "--hypothesis", hypothesis,
+        "--days", str(days),
+        "--split-mode", split_mode,
+        "--api-key", api_key,
+    ]
+
+    env = os.environ.copy()
+
+    def generate():
+        proc = None
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env,
+                cwd=str(BASE_DIR),
+            )
+
+            # Stream stderr line by line
+            for line in proc.stderr:
+                event = _parse_sse_line(line)
+                if event:
+                    yield _sse_event(event)
+
+            proc.wait(timeout=300)
+
+            if proc.returncode != 0:
+                yield _sse_event({"type": "error", "message": f"Analysis failed (exit {proc.returncode})"})
+                return
+
+            # Read final result
+            output_path = BASE_DIR / "hypothesis_output.json"
+            if output_path.exists():
+                try:
+                    with open(output_path) as f:
+                        output = json.load(f)
+                    # Save to history
+                    if not output.get("error") and output.get("verdict") not in (None, "error"):
+                        try:
+                            _save_to_history(output)
+                        except Exception:
+                            pass
+                    yield _sse_event({"type": "result", "data": output})
+                except Exception as e:
+                    yield _sse_event({"type": "error", "message": f"Could not read output: {e}"})
+            else:
+                yield _sse_event({"type": "error", "message": "No output produced"})
+
+        except subprocess.TimeoutExpired:
+            if proc:
+                proc.kill()
+            yield _sse_event({"type": "error", "message": "Analysis timed out after 5 minutes"})
+        except GeneratorExit:
+            if proc:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+
+    from flask import Response
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        }
+    )
 
 
 # ── History ───────────────────────────────────────────────────────────────
