@@ -1459,54 +1459,65 @@
     document.getElementById('analyse-btn').disabled = true;
     resetLoadingSteps();
 
-    // Simulate step progression
-    const stepTimings = [
-      { id: 'step-fetch', delay: 2000 },
-      { id: 'step-split', delay: 8000 },
-      { id: 'step-llm', delay: 20000 },
-      { id: 'step-done', delay: 50000 },
-    ];
-    stepTimings.forEach(({ id, delay }) => {
-      setTimeout(() => setStep(id), delay);
+    // Build SSE URL for streaming
+    const params = new URLSearchParams({
+      hypothesis: state.hypothesis,
+      api_key: state.apiKey,
+      project: state.project,
+      days: String(days),
+      split_mode: state.splitMode,
     });
+    const streamUrl = `/analyze/stream?${params}`;
 
-    try {
-      const resp = await fetch('/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          hypothesis: state.hypothesis,
-          api_key: state.apiKey,
-          project: state.project,
-          days,
-          split_mode: state.splitMode,
-        }),
-      });
+    let resolved = false;
+    const es = new EventSource(streamUrl);
 
-      const data = await resp.json();
+    es.onmessage = (e) => {
+      let msg;
+      try { msg = JSON.parse(e.data); } catch { return; }
 
-      document.getElementById('loading-card').style.display = 'none';
-      document.getElementById('analyse-btn').disabled = false;
-
-      if (!resp.ok || data.error) {
-        renderError(data.error || 'Unknown error occurred');
+      if (msg.type === 'step') {
+        // Update the active loading step with real agent log text
+        const activeStep = document.querySelector('.loading-steps li.active');
+        if (activeStep) {
+          activeStep.querySelector('.step-icon') && (activeStep.querySelector('.step-icon').textContent = '⚡');
+          activeStep.lastChild.textContent = ' ' + msg.text;
+        }
+      } else if (msg.type === 'result') {
+        resolved = true;
+        es.close();
+        setStep('step-done');
+        document.getElementById('loading-card').style.display = 'none';
+        document.getElementById('analyse-btn').disabled = false;
+        state.result = msg.data;
+        renderResults(msg.data);
+        document.getElementById('results-logo-sub').textContent = 'Hypothesis Testing';
+        document.getElementById('results-back-btn').textContent = '← New hypothesis';
+        document.getElementById('results-back-btn').onclick = () => showHypothesisScreen();
         showScreen('screen-results');
-        return;
+      } else if (msg.type === 'error') {
+        resolved = true;
+        es.close();
+        document.getElementById('loading-card').style.display = 'none';
+        document.getElementById('analyse-btn').disabled = false;
+        renderError('Analysis failed: ' + (msg.message || 'Unknown error'));
+        showScreen('screen-results');
       }
+    };
 
-      state.result = data;
-      renderResults(data);
-      document.getElementById('results-logo-sub').textContent = 'Hypothesis Testing';
-      document.getElementById('results-back-btn').textContent = '← New hypothesis';
-      document.getElementById('results-back-btn').onclick = () => showHypothesisScreen();
-      showScreen('screen-results');
+    es.onerror = () => {
+      if (!resolved) {
+        resolved = true;
+        es.close();
+        document.getElementById('loading-card').style.display = 'none';
+        document.getElementById('analyse-btn').disabled = false;
+        renderError('Connection lost during analysis. Please try again.');
+        showScreen('screen-results');
+      }
+    };
 
-    } catch (err) {
-      document.getElementById('loading-card').style.display = 'none';
-      document.getElementById('analyse-btn').disabled = false;
-      renderError(err.message);
-      showScreen('screen-results');
-    }
+    // EventSource handles async — return here, results come via callbacks
+    return;
   }
 
   // ── Render helpers ────────────────────────────────────────────────
