@@ -105,6 +105,8 @@ def make_experiment_tools(api_key: str) -> list:
         and last_session_start_time.
         """
         try:
+            import sys
+            print(f"[TraceIQ] Listing available datasets...", file=sys.stderr, flush=True)
             data = _get(api_key, "/datasets")
             # API returns list directly or wrapped in a key
             if isinstance(data, list):
@@ -176,6 +178,8 @@ def make_experiment_tools(api_key: str) -> list:
         status, and error.
         """
         try:
+            import sys
+            print(f"[TraceIQ] Fetching experiment rows (up to {limit})...", file=sys.stderr, flush=True)
             data = _post(api_key, "/runs/query", {
                 "session": [experiment_id],
                 "filter": "eq(is_root, true)",
@@ -186,6 +190,7 @@ def make_experiment_tools(api_key: str) -> list:
             if not isinstance(runs, list):
                 runs = []
 
+            print(f"[TraceIQ] Got {len(runs)} experiment rows — extracting scores...", file=sys.stderr, flush=True)
             result = []
             for run in runs:
                 feedback_stats = run.get("feedback_stats") or {}
@@ -220,10 +225,12 @@ def make_experiment_tools(api_key: str) -> list:
         Returns full inputs + outputs for failing rows so you can analyze the content.
         """
         try:
+            import sys
+            print(f"[TraceIQ] Fetching rows to find failures on metric '{metric}' (threshold: {threshold})...", file=sys.stderr, flush=True)
             data = _post(api_key, "/runs/query", {
                 "session": [experiment_id],
                 "filter": "eq(is_root, true)",
-                "limit": 200,
+                "limit": 100,
             })
 
             runs = data.get("runs", []) if isinstance(data, dict) else data
@@ -247,6 +254,7 @@ def make_experiment_tools(api_key: str) -> list:
                         "error": run.get("error"),
                     })
 
+            print(f"[TraceIQ] Found {len(failing)} failing rows out of {len(runs)} checked for '{metric}' < {threshold}", file=sys.stderr, flush=True)
             return json.dumps({
                 "metric": metric,
                 "threshold": threshold,
