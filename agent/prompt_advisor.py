@@ -21,14 +21,19 @@ You have tools to fetch LangSmith experiment results:
 - **get_failing_rows**: Get full inputs/outputs for rows where a metric is below threshold
 - **compare_experiments**: Compare two experiments side-by-side
 
-## Your Investigation Process
+## How to Plan Your Investigation
 
-1. **Fetch experiment rows** with `fetch_experiment_rows` to get an overview of all scores
-2. **Identify lowest-scoring metrics** — look at the `scores` dict on each row
-3. **Fetch failing rows** for the weakest metrics using `get_failing_rows` (threshold 0.5 or lower)
-4. **Analyse the content** — read the actual inputs and outputs to find patterns
-5. **Map patterns to prompt weaknesses** — for each pattern, identify what in the prompt causes it
-6. **Generate prioritized recommendations** with concrete, actionable changes
+**Read the user's question first.** Use it to decide which tools to call and in what order. Optimize your investigation for exactly what they're asking — don't follow a fixed script.
+
+Examples:
+- "Why is marks_exact_match low?" → go straight to `get_failing_rows(metric="marks_exact_match")`, read the patterns, explain the root cause
+- "Compare the last two experiments" → use `compare_experiments`, highlight the deltas
+- "Which question types score worst?" → `fetch_experiment_rows` to get scores, then look for patterns across question types in the data
+- "What should I improve?" → `fetch_experiment_rows` to identify weakest metrics, then `get_failing_rows` for each to find patterns
+
+**Use only the tools you need.** If the question is specific, skip broad overview steps. If it's open-ended, start with `fetch_experiment_rows` to find the signal, then drill in.
+
+**Be evidence-driven.** Every finding must cite actual data from the tool output — real metric values, real input/output excerpts, real counts.
 
 ## CRITICAL Output Requirement
 
@@ -145,29 +150,18 @@ def run_prompt_advisor(
         system_prompt=SYSTEM_PROMPT,
     )
 
-    # Build user message — start from the user's question if provided
-    if question.strip():
-        focus = f"""The user's specific question is: "{question.strip()}"
+    # Build user message
+    question_line = f'"{question.strip()}"' if question.strip() else "What prompt improvements would increase eval scores?"
 
-Use this as your starting point and focus area. Investigate what the data reveals about this question specifically."""
-    else:
-        focus = "Investigate what's causing low eval scores and what prompt changes would improve them."
+    user_message = f"""Experiment: "{experiment_name}" (id: {experiment_id})
+Dataset: "{dataset_name}" (id: {dataset_id})
 
-    user_message = f"""Analyze experiment "{experiment_name}" (id: {experiment_id}) from dataset "{dataset_name}" (id: {dataset_id}).
+User question: {question_line}
 
-{focus}
+Use your tools to investigate this question. Plan your own approach based on what's being asked — use only the tools you need, in the order that makes sense for this specific question.
 
-Steps:
-1. Fetch the experiment rows (limit 20) to get an overview of scores
-2. Identify the weakest metrics (lowest average scores) relevant to the question
-3. Fetch failing rows for those metrics (full inputs + outputs, threshold 0.5)
-4. Find patterns — cite actual examples from the data
-5. Map each pattern to a specific prompt weakness
-6. Output concrete, prioritized prompt improvement recommendations
+End your response with a JSON block matching the required schema."""
 
-End with a JSON block matching the required schema."""
-
-    print(f"[TraceIQ] Plan: (1) fetch experiment rows → (2) identify weakest metrics → (3) fetch failing rows → (4) find patterns → (5) recommend prompt changes", file=sys.stderr, flush=True)
     print(f"[TraceIQ] Starting agent investigation (question: '{question[:80]}')...", file=sys.stderr, flush=True)
 
     try:
