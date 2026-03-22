@@ -7,9 +7,11 @@ tool does make LLM calls (claude-haiku-4-5) in batches of 20.
 """
 
 import json
+import math
 import os
 import re
 import statistics
+import sys
 from typing import Any
 
 
@@ -206,6 +208,14 @@ def make_tools(api_key: str, session_id: str, all_runs: list[dict]) -> list:
 
         batch_size = 20
         batches = [all_runs[i:i + batch_size] for i in range(0, len(all_runs), batch_size)]
+        total = len(all_runs)
+        processed = 0
+        print(
+            f"[TraceIQ] Starting trace classification: {total} traces across "
+            f"{math.ceil(total / batch_size)} batches",
+            file=sys.stderr,
+            flush=True,
+        )
 
         for batch in batches:
             # Build compact batch representation
@@ -256,6 +266,13 @@ Respond ONLY with a JSON object mapping trace IDs to categories:
                 # On error, mark batch as unknown
                 for run in batch:
                     result["unknown"].append(run.get("id", "")[:16])
+
+            processed += len(batch)
+            print(
+                f"[TraceIQ] Classifying traces: {min(processed, total)}/{total} labeled",
+                file=sys.stderr,
+                flush=True,
+            )
 
         # Add counts
         summary = {cat: {"count": len(ids), "trace_ids": ids} for cat, ids in result.items()}
