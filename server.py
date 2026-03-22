@@ -476,6 +476,93 @@ print(json.dumps(result, default=str))
     return jsonify(output)
 
 
+@app.route("/experiments/analyze/stream", methods=["GET"])
+def experiments_analyze_stream():
+    """
+    GET /experiments/analyze/stream?api_key=...&dataset_id=...&experiment_id=...&question=...
+    Streams real-time [TraceIQ] log lines as SSE step events.
+    Final result emitted as a 'result' event.
+    """
+    api_key = request.args.get("api_key", "").strip()
+    dataset_id = request.args.get("dataset_id", "").strip()
+    experiment_id = request.args.get("experiment_id", "").strip()
+    question = request.args.get("question", "").strip()
+
+    if not api_key:
+        return jsonify({"error": "api_key is required"}), 400
+    if not dataset_id:
+        return jsonify({"error": "dataset_id is required"}), 400
+    if not experiment_id:
+        return jsonify({"error": "experiment_id is required"}), 400
+
+    env = os.environ.copy()
+    env["LANGSMITH_API_KEY"] = api_key
+
+    cmd = [
+        sys.executable, str(BASE_DIR / "agent" / "run_advisor.py"),
+        "--api-key", api_key,
+        "--dataset-id", dataset_id,
+        "--experiment-id", experiment_id,
+        "--question", question or "Analyze this experiment and recommend prompt improvements",
+    ]
+
+    def generate():
+        proc = None
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env,
+                cwd=str(BASE_DIR),
+            )
+
+            for line in proc.stderr:
+                event = _parse_sse_line(line)
+                if event:
+                    yield _sse_event(event)
+
+            proc.wait(timeout=600)
+
+            if proc.returncode != 0:
+                yield _sse_event({"type": "error", "message": f"Analysis failed (exit {proc.returncode})"})
+                return
+
+            try:
+                raw = proc.stdout.read()
+                output = json.loads(raw)
+            except Exception as e:
+                yield _sse_event({"type": "error", "message": f"Could not parse output: {e}"})
+                return
+
+            if not output.get("error"):
+                try:
+                    _save_experiment_to_history(output)
+                except Exception as e:
+                    print(f"[server] Warning: could not save experiment to history: {e}", flush=True)
+
+            yield _sse_event({"type": "result", "data": output})
+
+        except subprocess.TimeoutExpired:
+            if proc:
+                proc.kill()
+            yield _sse_event({"type": "error", "message": "Analysis timed out after 10 minutes"})
+        except GeneratorExit:
+            if proc:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+
+    from flask import Response
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 def _save_experiment_to_history(result: dict) -> str:
     """Save an experiment result to the history directory. Returns the filename."""
     exp_name = result.get("experiment_name", "experiment")
