@@ -1992,7 +1992,7 @@
     document.getElementById('exp-analyse-btn').disabled = !(expId && question);
   }
 
-  async function runExpAnalysis() {
+  function runExpAnalysis() {
     const question = document.getElementById('exp-question-input').value.trim();
     if (!state.apiKey || !state.expDatasetId || !state.expExperimentId) {
       alert('Please select a dataset and experiment first.');
@@ -2009,57 +2009,74 @@
     document.getElementById('exp-connect-btn').disabled = true;
     resetExpLoadingSteps();
 
-    // Animate steps
-    const stepTimings = [
-      { id: 'exp-step-fetch', delay: 2000 },
-      { id: 'exp-step-patterns', delay: 30000 },
-      { id: 'exp-step-recs', delay: 75000 },
-      { id: 'exp-step-done', delay: 120000 },
-    ];
-    stepTimings.forEach(({ id, delay }) => {
-      setTimeout(() => setExpStep(id), delay);
+    // Build SSE URL for streaming
+    const params = new URLSearchParams({
+      api_key: state.apiKey,
+      dataset_id: state.expDatasetId,
+      experiment_id: state.expExperimentId,
+      question: question,
     });
+    const streamUrl = `/experiments/analyze/stream?${params}`;
 
-    try {
-      const resp = await fetch('/experiments/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          api_key: state.apiKey,
-          dataset_id: state.expDatasetId,
-          experiment_id: state.expExperimentId,
-          question: question,
-        }),
-      });
-      const data = await resp.json();
+    let resolved = false;
+    const es = new EventSource(streamUrl);
 
-      document.getElementById('exp-loading-card').style.display = 'none';
-      document.getElementById('exp-analyse-btn').disabled = false;
-      document.getElementById('exp-connect-btn').disabled = false;
+    es.onmessage = (e) => {
+      let msg;
+      try { msg = JSON.parse(e.data); } catch { return; }
 
-      if (!resp.ok || data.error) {
-        renderError(data.error || 'Unknown error occurred');
+      if (msg.type === 'step') {
+        // Update the active loading step with real agent log text
+        const activeStep = document.querySelector('#exp-loading-steps li.active');
+        if (activeStep) {
+          const icon = activeStep.querySelector('.step-icon');
+          if (icon) icon.textContent = '⚡';
+          activeStep.lastChild.textContent = ' ' + msg.text;
+        }
+      } else if (msg.type === 'result') {
+        resolved = true;
+        es.close();
+        setExpStep('exp-step-done');
+        document.getElementById('exp-loading-card').style.display = 'none';
+        document.getElementById('exp-analyse-btn').disabled = false;
+        document.getElementById('exp-connect-btn').disabled = false;
+        state.result = msg.data;
+        renderExpResults(msg.data);
         document.getElementById('results-logo-sub').textContent = 'Experiments';
         document.getElementById('results-back-btn').textContent = '← New experiment';
         document.getElementById('results-back-btn').onclick = () => showScreen('screen-experiment');
         showScreen('screen-results');
-        return;
+      } else if (msg.type === 'error') {
+        resolved = true;
+        es.close();
+        document.getElementById('exp-loading-card').style.display = 'none';
+        document.getElementById('exp-analyse-btn').disabled = false;
+        document.getElementById('exp-connect-btn').disabled = false;
+        renderError('Analysis failed: ' + (msg.message || 'Unknown error'));
+        document.getElementById('results-logo-sub').textContent = 'Experiments';
+        document.getElementById('results-back-btn').textContent = '← New experiment';
+        document.getElementById('results-back-btn').onclick = () => showScreen('screen-experiment');
+        showScreen('screen-results');
       }
+    };
 
-      state.result = data;
-      renderExpResults(data);
-      document.getElementById('results-logo-sub').textContent = 'Experiments';
-      document.getElementById('results-back-btn').textContent = '← New experiment';
-      document.getElementById('results-back-btn').onclick = () => showScreen('screen-experiment');
-      showScreen('screen-results');
+    es.onerror = () => {
+      if (!resolved) {
+        resolved = true;
+        es.close();
+        document.getElementById('exp-loading-card').style.display = 'none';
+        document.getElementById('exp-analyse-btn').disabled = false;
+        document.getElementById('exp-connect-btn').disabled = false;
+        renderError('Connection lost during analysis. Please try again.');
+        document.getElementById('results-logo-sub').textContent = 'Experiments';
+        document.getElementById('results-back-btn').textContent = '← New experiment';
+        document.getElementById('results-back-btn').onclick = () => showScreen('screen-experiment');
+        showScreen('screen-results');
+      }
+    };
 
-    } catch (err) {
-      document.getElementById('exp-loading-card').style.display = 'none';
-      document.getElementById('exp-analyse-btn').disabled = false;
-      document.getElementById('exp-connect-btn').disabled = false;
-      renderError(err.message);
-      showScreen('screen-results');
-    }
+    // EventSource handles async — return here, results come via callbacks
+    return;
   }
 
   function setExpStep(stepId) {
