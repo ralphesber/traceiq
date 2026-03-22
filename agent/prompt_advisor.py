@@ -167,7 +167,8 @@ Steps:
 
 End with a JSON block matching the required schema."""
 
-    print(f"[TraceIQ] Starting agent investigation...", file=sys.stderr, flush=True)
+    print(f"[TraceIQ] Plan: (1) fetch experiment rows → (2) identify weakest metrics → (3) fetch failing rows → (4) find patterns → (5) recommend prompt changes", file=sys.stderr, flush=True)
+    print(f"[TraceIQ] Starting agent investigation (question: '{question[:80]}')...", file=sys.stderr, flush=True)
 
     try:
         result = agent.invoke(

@@ -124,6 +124,7 @@ def make_tools(api_key: str, session_id: str, all_runs: list[dict]) -> list:
             filter_value: The value to match against (case-insensitive substring match).
             limit: Maximum number of results to return (default 20).
         """
+        print(f"[TraceIQ] Querying traces where '{filter_field}' contains '{filter_value}'...", file=sys.stderr, flush=True)
         results = []
         filter_value_lower = filter_value.lower()
         filter_field_lower = filter_field.lower()
@@ -155,6 +156,7 @@ def make_tools(api_key: str, session_id: str, all_runs: list[dict]) -> list:
             criteria: Natural-language description of what to look for (e.g. "traces where the student got a low score").
             n: Number of traces to return (default 10).
         """
+        print(f"[TraceIQ] Sampling up to {n} traces matching: '{criteria}'...", file=sys.stderr, flush=True)
         # Extract keywords from criteria (words longer than 3 chars)
         keywords = [w.lower() for w in re.findall(r'\b\w{4,}\b', criteria)]
 
@@ -290,6 +292,7 @@ Respond ONLY with a JSON object mapping trace IDs to categories:
             trace_ids: List of trace IDs (from classify_traces output).
             metrics: List of metrics to compute. Supported: "avg_score", "avg_latency", "error_rate", "count", "score_distribution".
         """
+        print(f"[TraceIQ] Computing stats ({', '.join(metrics)}) for {len(trace_ids)} traces...", file=sys.stderr, flush=True)
         # Match trace IDs (they may be truncated to 16 chars)
         matched_runs = []
         for run in all_runs:
@@ -299,6 +302,7 @@ Respond ONLY with a JSON object mapping trace IDs to categories:
                 matched_runs.append(run)
 
         count = len(matched_runs)
+        print(f"[TraceIQ] Matched {count} traces — computing {', '.join(metrics)}...", file=sys.stderr, flush=True)
         stats: dict[str, Any] = {}
 
         for metric in metrics:
@@ -383,6 +387,7 @@ Respond ONLY with a JSON object mapping trace IDs to categories:
             label_a: Human-readable label for group A (e.g. "Math questions").
             label_b: Human-readable label for group B (e.g. "Science questions").
         """
+        print(f"[TraceIQ] Comparing '{label_a}' ({len(group_a_ids)} traces) vs '{label_b}' ({len(group_b_ids)} traces)...", file=sys.stderr, flush=True)
         all_metrics = ["count", "avg_score", "avg_latency", "error_rate", "score_distribution"]
 
         def _stats_for_group(trace_ids: list[str]) -> dict:
@@ -450,6 +455,13 @@ Respond ONLY with a JSON object mapping trace IDs to categories:
                     "delta_pct": pct,
                     "interpretation": f"{label_b} is {'higher' if diff > 0 else 'lower'} by {abs(diff)} ({abs(pct)}%)",
                 }
+
+        # Log key finding
+        diff = comparison.get("differences", {}).get("avg_score", {})
+        if diff:
+            print(f"[TraceIQ] Comparison done — avg score: {label_a}={diff.get('group_a')} vs {label_b}={diff.get('group_b')} (delta: {diff.get('delta')})", file=sys.stderr, flush=True)
+        else:
+            print(f"[TraceIQ] Comparison done — {label_a}: {stats_a.get('count')} traces, {label_b}: {stats_b.get('count')} traces", file=sys.stderr, flush=True)
 
         return json.dumps(comparison, default=str)
 

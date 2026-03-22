@@ -115,7 +115,7 @@ def run_hypothesis_agent(
     from agent.tools import make_tools
 
     # Fetch runs
-    print(f"[TraceIQ/agent] Fetching traces for '{project}' (last {days} days)...", file=sys.stderr)
+    print(f"[TraceIQ] Fetching traces for '{project}' (last {days} days)...", file=sys.stderr, flush=True)
     all_runs = fetch_runs(api_key, project, days=days)
 
     if not all_runs:
@@ -132,10 +132,10 @@ def run_hypothesis_agent(
     # Limit to max_traces (most recent)
     if len(all_runs) > max_traces:
         all_runs = sorted(all_runs, key=lambda r: r.get("start_time", ""), reverse=True)[:max_traces]
-        print(f"[TraceIQ/agent] Capped to {max_traces} most recent traces", file=sys.stderr)
+        print(f"[TraceIQ] Capped to {max_traces} most recent traces", file=sys.stderr, flush=True)
 
     traces_count = len(all_runs)
-    print(f"[TraceIQ/agent] Running deep analysis on {traces_count} traces...", file=sys.stderr)
+    print(f"[TraceIQ] Running deep analysis on {traces_count} traces...", file=sys.stderr, flush=True)
 
     # Resolve session_id (needed for tool context, though tools use all_runs directly)
     try:
@@ -182,7 +182,8 @@ Investigate systematically using the available tools. Start with classify_traces
 
 End your response with a JSON verdict block as specified in your instructions."""
 
-    print(f"[TraceIQ/agent] Starting agent investigation...", file=sys.stderr)
+    print(f"[TraceIQ] Plan: (1) understand hypothesis → (2) query/classify traces → (3) compute stats → (4) compare groups → (5) synthesize verdict", file=sys.stderr, flush=True)
+    print(f"[TraceIQ] Starting agent investigation (hypothesis: '{hypothesis[:80]}')...", file=sys.stderr, flush=True)
 
     try:
         result = agent.invoke(
@@ -223,7 +224,7 @@ End your response with a JSON verdict block as specified in your instructions.""
             final_content = content
             break
 
-    print(f"[TraceIQ/agent] Agent finished. Extracting verdict...", file=sys.stderr)
+    print(f"[TraceIQ] Agent finished. Extracting verdict...", file=sys.stderr, flush=True)
 
     # Parse the JSON verdict from the final message
     parsed = _extract_json_verdict(final_content)
