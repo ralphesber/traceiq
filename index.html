@@ -1457,6 +1457,61 @@
     document.getElementById('step-fetch').classList.add('active');
   }
 
+  // ── Async job polling ─────────────────────────────────────────────────────
+
+  /**
+   * Poll /jobs/<job_id> every 2s until status is 'done' or 'failed'.
+   * Calls onStep(stepText) for each new step, onDone(result) on success,
+   * onError(message) on failure.
+   */
+  function pollJob(jobId, { onStep, onDone, onError }) {
+    let lastStepCount = 0;
+    let pollTimer = null;
+    let stopped = false;
+
+    function stop() {
+      stopped = true;
+      if (pollTimer) clearTimeout(pollTimer);
+    }
+
+    async function tick() {
+      if (stopped) return;
+      try {
+        const resp = await fetch(`/jobs/${encodeURIComponent(jobId)}`);
+        if (!resp.ok) {
+          onError(`Server error: ${resp.status}`);
+          stop();
+          return;
+        }
+        const job = await resp.json();
+
+        // Dispatch any new steps
+        const steps = job.steps || [];
+        for (let i = lastStepCount; i < steps.length; i++) {
+          onStep(steps[i]);
+        }
+        lastStepCount = steps.length;
+
+        if (job.status === 'done') {
+          stop();
+          onDone(job.result);
+        } else if (job.status === 'failed') {
+          stop();
+          onError(job.error || 'Job failed');
+        } else {
+          // still queued or running — poll again
+          pollTimer = setTimeout(tick, 2000);
+        }
+      } catch (e) {
+        onError(`Polling failed: ${e.message}`);
+        stop();
+      }
+    }
+
+    tick();
+    return { stop };
+  }
+
   // ── Run analysis ─────────────────────────────────────────────────
   async function runAnalysis() {
     const text = document.getElementById('hypothesis-text').value.trim();
@@ -1472,66 +1527,80 @@
     document.getElementById('analyse-btn').disabled = true;
     resetLoadingSteps();
 
-    // Build SSE URL for streaming
-    const params = new URLSearchParams({
-      hypothesis: state.hypothesis,
-      session_id: state.sessionId || state.apiKey,
-      project: state.project,
-      days: String(days),
-      split_mode: state.splitMode,
-    });
-    const streamUrl = `/analyze/stream?${params}`;
+    let jobPoller = null;
 
-    let resolved = false;
-    const es = new EventSource(streamUrl);
+    function cleanup() {
+      document.getElementById('loading-card').style.display = 'none';
+      document.getElementById('analyse-btn').disabled = false;
+      if (jobPoller) jobPoller.stop();
+    }
 
-    es.onmessage = (e) => {
-      let msg;
-      try { msg = JSON.parse(e.data); } catch { return; }
+    try {
+      // 1. Enqueue the job
+      const resp = await fetch('/analyze/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hypothesis: state.hypothesis,
+          session_id: state.sessionId || state.apiKey,
+          project: state.project,
+          days: String(days),
+          split_mode: state.splitMode,
+        }),
+      });
 
-      if (msg.type === 'step') {
-        // Update the active loading step with real agent log text
-        const activeStep = document.querySelector('.loading-steps li.active');
-        if (activeStep) {
-          activeStep.querySelector('.step-icon') && (activeStep.querySelector('.step-icon').textContent = '⚡');
-          activeStep.lastChild.textContent = ' ' + msg.text;
-        }
-      } else if (msg.type === 'result') {
-        resolved = true;
-        es.close();
-        playDoneChime();
-        setStep('step-done');
-        document.getElementById('loading-card').style.display = 'none';
-        document.getElementById('analyse-btn').disabled = false;
-        state.result = msg.data;
-        renderResults(msg.data);
-        document.getElementById('results-logo-sub').textContent = 'Hypothesis Testing';
-        document.getElementById('results-back-btn').textContent = '← New hypothesis';
-        document.getElementById('results-back-btn').onclick = () => showHypothesisScreen();
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        cleanup();
+        renderError('Failed to start analysis: ' + (err.error || resp.status));
         showScreen('screen-results');
-      } else if (msg.type === 'error') {
-        resolved = true;
-        es.close();
-        document.getElementById('loading-card').style.display = 'none';
-        document.getElementById('analyse-btn').disabled = false;
-        renderError('Analysis failed: ' + (msg.message || 'Unknown error'));
-        showScreen('screen-results');
+        return;
       }
-    };
 
-    es.onerror = () => {
-      if (!resolved) {
-        resolved = true;
-        es.close();
-        document.getElementById('loading-card').style.display = 'none';
-        document.getElementById('analyse-btn').disabled = false;
-        renderError('Connection lost during analysis. Please try again.');
+      const { job_id } = await resp.json();
+      if (!job_id) {
+        cleanup();
+        renderError('No job_id returned from server');
         showScreen('screen-results');
+        return;
       }
-    };
 
-    // EventSource handles async — return here, results come via callbacks
-    return;
+      // 2. Poll for progress
+      jobPoller = pollJob(job_id, {
+        onStep(stepText) {
+          const activeStep = document.querySelector('.loading-steps li.active');
+          if (activeStep) {
+            const icon = activeStep.querySelector('.step-icon');
+            if (icon) icon.textContent = '⚡';
+            activeStep.lastChild.textContent = ' ' + stepText;
+          }
+        },
+        onDone(result) {
+          cleanup();
+          playDoneChime();
+          setStep('step-done');
+          state.result = result;
+          renderResults(result);
+          document.getElementById('results-logo-sub').textContent = 'Hypothesis Testing';
+          document.getElementById('results-back-btn').textContent = '← New hypothesis';
+          document.getElementById('results-back-btn').onclick = () => showHypothesisScreen();
+          showScreen('screen-results');
+        },
+        onError(message) {
+          cleanup();
+          renderError('Analysis failed: ' + message);
+          document.getElementById('results-logo-sub').textContent = 'Hypothesis Testing';
+          document.getElementById('results-back-btn').textContent = '← New hypothesis';
+          document.getElementById('results-back-btn').onclick = () => showHypothesisScreen();
+          showScreen('screen-results');
+        },
+      });
+
+    } catch (e) {
+      cleanup();
+      renderError('Failed to start analysis: ' + e.message);
+      showScreen('screen-results');
+    }
   }
 
   // ── Render helpers ────────────────────────────────────────────────
@@ -2045,75 +2114,70 @@
     document.getElementById('exp-connect-btn').disabled = true;
     resetExpLoadingSteps();
 
-    // Build SSE URL for streaming
-    const params = new URLSearchParams({
-      session_id: state.sessionId || state.apiKey,
-      dataset_id: state.expDatasetId,
-      experiment_id: state.expExperimentId,
-      question: question,
+    let jobPoller = null;
+
+    function cleanup() {
+      document.getElementById('exp-loading-card').style.display = 'none';
+      document.getElementById('exp-analyse-btn').disabled = false;
+      document.getElementById('exp-connect-btn').disabled = false;
+      if (jobPoller) jobPoller.stop();
+    }
+
+    fetch('/experiments/analyze/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: state.sessionId || state.apiKey,
+        dataset_id: state.expDatasetId,
+        experiment_id: state.expExperimentId,
+        question: question,
+      }),
+    })
+    .then(resp => {
+      if (!resp.ok) return resp.json().then(e => Promise.reject(e.error || resp.status));
+      return resp.json();
+    })
+    .then(({ job_id }) => {
+      if (!job_id) throw new Error('No job_id returned');
+
+      jobPoller = pollJob(job_id, {
+        onStep(stepText) {
+          const activeStep = document.querySelector('#exp-loading-steps li.active');
+          if (activeStep) {
+            const icon = activeStep.querySelector('.step-icon');
+            if (icon) icon.textContent = '⚡';
+            activeStep.lastChild.textContent = ' ' + stepText;
+          }
+        },
+        onDone(result) {
+          cleanup();
+          playDoneChime();
+          setExpStep('exp-step-done');
+          state.result = result;
+          renderExpResults(result);
+          document.getElementById('results-logo-sub').textContent = 'Experiments';
+          document.getElementById('results-back-btn').textContent = '← New experiment';
+          document.getElementById('results-back-btn').onclick = () => showScreen('screen-experiment');
+          showScreen('screen-results');
+        },
+        onError(message) {
+          cleanup();
+          renderError('Analysis failed: ' + message);
+          document.getElementById('results-logo-sub').textContent = 'Experiments';
+          document.getElementById('results-back-btn').textContent = '← New experiment';
+          document.getElementById('results-back-btn').onclick = () => showScreen('screen-experiment');
+          showScreen('screen-results');
+        },
+      });
+    })
+    .catch(e => {
+      cleanup();
+      renderError('Failed to start analysis: ' + e);
+      document.getElementById('results-logo-sub').textContent = 'Experiments';
+      document.getElementById('results-back-btn').textContent = '← New experiment';
+      document.getElementById('results-back-btn').onclick = () => showScreen('screen-experiment');
+      showScreen('screen-results');
     });
-    const streamUrl = `/experiments/analyze/stream?${params}`;
-
-    let resolved = false;
-    const es = new EventSource(streamUrl);
-
-    es.onmessage = (e) => {
-      let msg;
-      try { msg = JSON.parse(e.data); } catch { return; }
-
-      if (msg.type === 'step') {
-        // Update the active loading step with real agent log text
-        const activeStep = document.querySelector('#exp-loading-steps li.active');
-        if (activeStep) {
-          const icon = activeStep.querySelector('.step-icon');
-          if (icon) icon.textContent = '⚡';
-          activeStep.lastChild.textContent = ' ' + msg.text;
-        }
-      } else if (msg.type === 'result') {
-        resolved = true;
-        es.close();
-        playDoneChime();
-        setExpStep('exp-step-done');
-        document.getElementById('exp-loading-card').style.display = 'none';
-        document.getElementById('exp-analyse-btn').disabled = false;
-        document.getElementById('exp-connect-btn').disabled = false;
-        state.result = msg.data;
-        renderExpResults(msg.data);
-        document.getElementById('results-logo-sub').textContent = 'Experiments';
-        document.getElementById('results-back-btn').textContent = '← New experiment';
-        document.getElementById('results-back-btn').onclick = () => showScreen('screen-experiment');
-        showScreen('screen-results');
-      } else if (msg.type === 'error') {
-        resolved = true;
-        es.close();
-        document.getElementById('exp-loading-card').style.display = 'none';
-        document.getElementById('exp-analyse-btn').disabled = false;
-        document.getElementById('exp-connect-btn').disabled = false;
-        renderError('Analysis failed: ' + (msg.message || 'Unknown error'));
-        document.getElementById('results-logo-sub').textContent = 'Experiments';
-        document.getElementById('results-back-btn').textContent = '← New experiment';
-        document.getElementById('results-back-btn').onclick = () => showScreen('screen-experiment');
-        showScreen('screen-results');
-      }
-    };
-
-    es.onerror = () => {
-      if (!resolved) {
-        resolved = true;
-        es.close();
-        document.getElementById('exp-loading-card').style.display = 'none';
-        document.getElementById('exp-analyse-btn').disabled = false;
-        document.getElementById('exp-connect-btn').disabled = false;
-        renderError('Connection lost during analysis. Please try again.');
-        document.getElementById('results-logo-sub').textContent = 'Experiments';
-        document.getElementById('results-back-btn').textContent = '← New experiment';
-        document.getElementById('results-back-btn').onclick = () => showScreen('screen-experiment');
-        showScreen('screen-results');
-      }
-    };
-
-    // EventSource handles async — return here, results come via callbacks
-    return;
   }
 
   function setExpStep(stepId) {
