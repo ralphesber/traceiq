@@ -419,6 +419,52 @@ def analyze():
         return jsonify({"error": "Analysis produced invalid output", "raw": result.stdout[-1000:]}), 500
 
 
+@app.route("/analyze/start", methods=["POST"])
+def analyze_start():
+    """
+    POST /analyze/start
+    Body: {api_key OR session_id, hypothesis, project, days, split_mode}
+    Returns: {job_id}
+    Enqueues a hypothesis analysis job; worker.py picks it up asynchronously.
+    """
+    data = request.get_json(force=True) or {}
+
+    # Resolve API key
+    api_key = (_resolve_api_key(
+        request_args=data,
+        request_json=data,
+    ) or data.get("api_key", "")).strip()
+
+    hypothesis = data.get("hypothesis", "").strip()
+    project = data.get("project", "").strip()
+    days = int(data.get("days", 30))
+    split_mode = data.get("split_mode", "agent").strip()
+
+    if not hypothesis:
+        return jsonify({"error": "hypothesis is required"}), 400
+    if not api_key:
+        return jsonify({"error": "api_key is required (or valid session_id)"}), 400
+    if not project:
+        return jsonify({"error": "project is required"}), 400
+    if split_mode not in ("prompt_change", "time_split", "none", "agent"):
+        split_mode = "agent"
+
+    job_input = {
+        "api_key": api_key,
+        "hypothesis": hypothesis,
+        "project": project,
+        "days": days,
+        "split_mode": split_mode,
+    }
+
+    job_id = _create_job("hypothesis", job_input)
+    if not job_id:
+        return jsonify({"error": "Failed to create job — DATABASE_URL may not be set"}), 500
+
+    print(f"[server] queued hypothesis job {job_id} project={project}", flush=True)
+    return jsonify({"job_id": job_id})
+
+
 @app.route("/analyze/stream", methods=["GET"])
 def analyze_stream():
     """
@@ -861,6 +907,49 @@ print(json.dumps(result, default=str))
             print(f"[server] Warning: could not save experiment to history: {e}", flush=True)
 
     return jsonify(output)
+
+
+@app.route("/experiments/analyze/start", methods=["POST"])
+def experiments_analyze_start():
+    """
+    POST /experiments/analyze/start
+    Body: {api_key OR session_id, dataset_id, experiment_id, question}
+    Returns: {job_id}
+    Enqueues an experiment analysis job; worker.py picks it up asynchronously.
+    """
+    data = request.get_json(force=True) or {}
+
+    api_key = (_resolve_api_key(
+        request_args=data,
+        request_json=data,
+    ) or data.get("api_key", "")).strip()
+
+    dataset_id = data.get("dataset_id", "").strip()
+    experiment_id = data.get("experiment_id", "").strip()
+    question = data.get("question", "").strip()
+
+    if not api_key:
+        return jsonify({"error": "api_key is required (or valid session_id)"}), 400
+    if not dataset_id:
+        return jsonify({"error": "dataset_id is required"}), 400
+    if not experiment_id:
+        return jsonify({"error": "experiment_id is required"}), 400
+    if not question:
+        question = "Analyze this experiment and recommend prompt improvements"
+
+    job_input = {
+        "api_key": api_key,
+        "dataset_id": dataset_id,
+        "experiment_id": experiment_id,
+        "question": question,
+    }
+
+    job_id = _create_job("experiment", job_input)
+    if not job_id:
+        return jsonify({"error": "Failed to create job — DATABASE_URL may not be set"}), 500
+
+    print(f"[server] queued experiment job {job_id} dataset={dataset_id}", flush=True)
+    return jsonify({"job_id": job_id})
 
 
 @app.route("/experiments/analyze/stream", methods=["GET"])
