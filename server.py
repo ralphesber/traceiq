@@ -297,8 +297,27 @@ def analyze_stream():
                 cwd=str(BASE_DIR),
             )
 
-            # Stream stderr line by line
-            for line in proc.stderr:
+            # Stream stderr with keepalive to prevent proxy timeouts
+            import queue as _queue
+            import threading as _threading
+
+            line_q = _queue.Queue()
+
+            def _reader(pipe, q):
+                for line in pipe:
+                    q.put(line)
+                q.put(None)
+
+            _threading.Thread(target=_reader, args=(proc.stderr, line_q), daemon=True).start()
+
+            while True:
+                try:
+                    line = line_q.get(timeout=25)
+                except _queue.Empty:
+                    yield ": keepalive\n\n"
+                    continue
+                if line is None:
+                    break
                 event = _parse_sse_line(line)
                 if event:
                     yield _sse_event(event)
@@ -717,7 +736,27 @@ def experiments_analyze_stream():
                 cwd=str(BASE_DIR),
             )
 
-            for line in proc.stderr:
+            import queue as _queue
+            import threading as _threading
+
+            line_q = _queue.Queue()
+
+            def _reader(pipe, q):
+                for line in pipe:
+                    q.put(line)
+                q.put(None)  # sentinel
+
+            _threading.Thread(target=_reader, args=(proc.stderr, line_q), daemon=True).start()
+
+            # Read stderr lines; send keepalive comment every 25s if agent is quiet
+            while True:
+                try:
+                    line = line_q.get(timeout=25)
+                except _queue.Empty:
+                    yield ": keepalive\n\n"  # SSE comment — keeps connection alive
+                    continue
+                if line is None:
+                    break
                 event = _parse_sse_line(line)
                 if event:
                     yield _sse_event(event)
