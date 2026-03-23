@@ -186,9 +186,20 @@ End your response with a JSON verdict block as specified in your instructions.""
     print(f"[TraceIQ] Starting agent investigation (hypothesis: '{hypothesis[:80]}')...", file=sys.stderr, flush=True)
 
     try:
-        result = agent.invoke(
+        result = None
+        for chunk in agent.stream(
             {"messages": [{"role": "user", "content": user_message}]},
-        )
+        ):
+            if "agent" in chunk:
+                msgs = chunk["agent"].get("messages", [])
+                for msg in msgs:
+                    content = getattr(msg, "content", "") or ""
+                    if isinstance(content, list):
+                        content = " ".join(b.get("text", "") if isinstance(b, dict) else str(b) for b in content)
+                    if content and len(content) > 10:
+                        preview = content[:80].replace("\n", " ")
+                        print(f"[TraceIQ] Agent: {preview}...", file=sys.stderr, flush=True)
+            result = chunk
     except Exception as e:
         return {
             "error": f"Agent execution failed: {e}",
@@ -199,6 +210,11 @@ End your response with a JSON verdict block as specified in your instructions.""
             "split_mode": "agent",
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
+
+    if result is None:
+        return {"error": "Agent produced no output", "verdict": "error", "hypothesis": hypothesis, "project": project, "traces_analyzed": traces_count, "split_mode": "agent", "generated_at": datetime.now(timezone.utc).isoformat()}
+    if "agent" in result:
+        result = result["agent"]
 
     # Extract the final message content
     messages = result.get("messages", [])

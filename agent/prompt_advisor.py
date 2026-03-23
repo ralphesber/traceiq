@@ -165,9 +165,22 @@ End your response with a JSON block matching the required schema."""
     print(f"[TraceIQ] Starting agent investigation (question: '{question[:80]}')...", file=sys.stderr, flush=True)
 
     try:
-        result = agent.invoke(
+        # Use stream() instead of invoke() so intermediate steps keep the SSE connection alive
+        result = None
+        for chunk in agent.stream(
             {"messages": [{"role": "user", "content": user_message}]},
-        )
+        ):
+            # Each chunk is a step — emit a heartbeat so the connection stays alive
+            if "agent" in chunk:
+                msgs = chunk["agent"].get("messages", [])
+                for msg in msgs:
+                    content = getattr(msg, "content", "") or ""
+                    if isinstance(content, list):
+                        content = " ".join(b.get("text", "") if isinstance(b, dict) else str(b) for b in content)
+                    if content and len(content) > 10:
+                        preview = content[:80].replace("\n", " ")
+                        print(f"[TraceIQ] Agent: {preview}...", file=sys.stderr, flush=True)
+            result = chunk  # keep last chunk
     except Exception as e:
         return {
             "error": f"Agent execution failed: {e}",
@@ -177,7 +190,12 @@ End your response with a JSON block matching the required schema."""
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    # Extract final message content
+    # Extract final message content — stream() returns last chunk which may be nested
+    if result is None:
+        return {"error": "Agent produced no output", "experiment_name": experiment_name, "dataset_name": dataset_name, "experiment_id": experiment_id, "generated_at": datetime.now(timezone.utc).isoformat()}
+    # Unwrap nested structure from stream() chunks
+    if "agent" in result:
+        result = result["agent"]
     messages = result.get("messages", [])
     final_content = ""
     for msg in reversed(messages):
