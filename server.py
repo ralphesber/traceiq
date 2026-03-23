@@ -69,7 +69,58 @@ def _resolve_api_key(request_args=None, request_json=None):
     # Fallback: direct api_key (local dev / curl)
     return (request_args or {}).get("api_key", "")
 
+
+# ── Postgres history (falls back to files when DATABASE_URL not set) ──────
+
+def _get_db_conn():
+    """Return a psycopg2 connection or None if DATABASE_URL not set."""
+    url = os.environ.get("DATABASE_URL", "").strip()
+    if not url:
+        return None
+    try:
+        import psycopg2
+        # Railway appends ?sslmode=require — psycopg2 handles it
+        return psycopg2.connect(url, sslmode="require")
+    except Exception as e:
+        print(f"[server] DB connect failed: {e}", flush=True)
+        return None
+
+
+def _init_db():
+    """Create history table if it doesn't exist. Called at startup."""
+    conn = _get_db_conn()
+    if not conn:
+        return
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS history (
+                        id SERIAL PRIMARY KEY,
+                        filename TEXT UNIQUE NOT NULL,
+                        result_type TEXT,
+                        hypothesis TEXT,
+                        question TEXT,
+                        verdict TEXT,
+                        confidence TEXT,
+                        project TEXT,
+                        experiment_name TEXT,
+                        traces_analyzed INTEGER,
+                        generated_at TIMESTAMPTZ,
+                        data JSONB NOT NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS history_generated_at_idx
+                        ON history (generated_at DESC);
+                """)
+        print("[server] DB: history table ready", flush=True)
+    except Exception as e:
+        print(f"[server] DB init failed: {e}", flush=True)
+    finally:
+        conn.close()
+
+
 app = Flask(__name__, static_folder=str(BASE_DIR), static_url_path="")
+_init_db()
 
 
 # ── Session endpoint ──────────────────────────────────────────────────────
