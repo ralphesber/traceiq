@@ -1486,6 +1486,7 @@
       } else if (msg.type === 'result') {
         resolved = true;
         es.close();
+        playDoneChime();
         setStep('step-done');
         document.getElementById('loading-card').style.display = 'none';
         document.getElementById('analyse-btn').disabled = false;
@@ -1900,6 +1901,28 @@
     hypothesisInput.focus();
   }
 
+  // ── Done chime ───────────────────────────────────────────────────────────
+  function playDoneChime() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const notes = [523.25, 659.25]; // C5, E5 — soft two-note chime
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const start = ctx.currentTime + i * 0.18;
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.15, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.4);
+        osc.start(start);
+        osc.stop(start + 0.4);
+      });
+    } catch (e) {}
+  }
+
   function esc(str) {
     return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
@@ -2036,6 +2059,7 @@
       } else if (msg.type === 'result') {
         resolved = true;
         es.close();
+        playDoneChime();
         setExpStep('exp-step-done');
         document.getElementById('exp-loading-card').style.display = 'none';
         document.getElementById('exp-analyse-btn').disabled = false;
