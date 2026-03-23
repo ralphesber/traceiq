@@ -712,12 +712,12 @@ def _call_llm(prompt_text: str, openai_key: str | None, anthropic_key: str | Non
                 raise
 
     # Anthropic fallback
-    print(f"[TraceIQ] Calling Anthropic (claude-3-5-sonnet) for hypothesis analysis...", file=sys.stderr)
+    print(f"[TraceIQ] Calling Anthropic (claude-sonnet-4-6) for hypothesis analysis...", file=sys.stderr)
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=anthropic_key)
         message = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-4-6",
             max_tokens=3000,
             messages=[{"role": "user", "content": prompt_text + "\n\nRespond with ONLY the JSON object, no other text."}],
         )
