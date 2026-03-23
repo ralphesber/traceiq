@@ -112,24 +112,21 @@ def _init_db():
                     );
                     CREATE INDEX IF NOT EXISTS history_generated_at_idx
                         ON history (generated_at DESC);
+                    CREATE TABLE IF NOT EXISTS jobs (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        status TEXT NOT NULL DEFAULT 'queued',
+                        job_type TEXT NOT NULL,
+                        input JSONB NOT NULL,
+                        steps TEXT[],
+                        result JSONB,
+                        error TEXT,
+                        created_at TIMESTAMPTZ DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+                    CREATE INDEX IF NOT EXISTS jobs_status_idx ON jobs(status);
+                    CREATE INDEX IF NOT EXISTS jobs_created_at_idx ON jobs(created_at DESC);
                 """)
-        print("[server] DB: history table ready", flush=True)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS jobs (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                status TEXT NOT NULL DEFAULT 'queued',
-                job_type TEXT NOT NULL,
-                input JSONB NOT NULL,
-                steps TEXT[],
-                result JSONB,
-                error TEXT,
-                created_at TIMESTAMPTZ DEFAULT NOW(),
-                updated_at TIMESTAMPTZ DEFAULT NOW()
-            );
-            CREATE INDEX IF NOT EXISTS jobs_status_idx ON jobs(status);
-            CREATE INDEX IF NOT EXISTS jobs_created_at_idx ON jobs(created_at DESC);
-        """)
-        print("[server] DB: jobs table ready", flush=True)
+        print("[server] DB: schema ready (history + jobs)", flush=True)
     except Exception as e:
         print(f"[server] DB init failed: {e}", flush=True)
     finally:
