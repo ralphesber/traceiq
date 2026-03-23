@@ -202,7 +202,7 @@ def analyze_stream():
     Final result is emitted as a 'result' event.
     """
     hypothesis = request.args.get("hypothesis", "").strip()
-    api_key = request.args.get("api_key", "").strip()
+    api_key = (_resolve_api_key(request.args) or "").strip()
     project = request.args.get("project", "").strip()
     days = int(request.args.get("days", 30))
     split_mode = request.args.get("split_mode", "prompt_change").strip()
@@ -400,7 +400,7 @@ def _ls_get(api_key: str, path: str, params: dict = None):
 
 @app.route("/experiments/datasets", methods=["GET"])
 def experiments_datasets():
-    api_key = request.args.get("api_key", "").strip()
+    api_key = (_resolve_api_key(request.args) or "").strip()
     if not api_key:
         return jsonify({"error": "api_key query parameter is required"}), 400
     try:
@@ -427,7 +427,7 @@ def experiments_datasets():
 
 @app.route("/experiments/list", methods=["GET"])
 def experiments_list():
-    api_key = request.args.get("api_key", "").strip()
+    api_key = (_resolve_api_key(request.args) or "").strip()
     dataset_id = request.args.get("dataset_id", "").strip()
     if not api_key:
         return jsonify({"error": "api_key query parameter is required"}), 400
@@ -532,7 +532,7 @@ def experiments_analyze_stream():
     Streams real-time [TraceIQ] log lines as SSE step events.
     Final result emitted as a 'result' event.
     """
-    api_key = request.args.get("api_key", "").strip()
+    api_key = (_resolve_api_key(request.args) or "").strip()
     dataset_id = request.args.get("dataset_id", "").strip()
     experiment_id = request.args.get("experiment_id", "").strip()
     question = request.args.get("question", "").strip()
@@ -676,7 +676,7 @@ def overview():
 
     Returns daily_stats + summary + comparison + latest_experiment for the sparkline UI.
     """
-    api_key = request.args.get("api_key", "").strip()
+    api_key = (_resolve_api_key(request.args) or "").strip()
     project = request.args.get("project", "").strip()
     if not api_key or not project:
         return jsonify({"error": "api_key and project are required"}), 400
