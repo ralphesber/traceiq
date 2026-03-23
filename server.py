@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+# Gevent monkey patch — must be first, before any other imports
+try:
+    from gevent import monkey
+    monkey.patch_all()
+except ImportError:
+    pass  # local dev without gevent
+
 """
 TraceIQ server — minimal Flask server for the hypothesis testing UI.
 
