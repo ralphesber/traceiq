@@ -16,6 +16,9 @@ import os
 import re
 import subprocess
 import sys
+import threading
+import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -25,7 +28,53 @@ BASE_DIR = Path(__file__).parent.resolve()
 HISTORY_DIR = BASE_DIR / "history"
 HISTORY_DIR.mkdir(exist_ok=True)
 
+_sessions: dict = {}
+_sessions_lock = threading.Lock()
+SESSION_TTL = 3600  # 1 hour
+
+def _create_session(api_key: str) -> str:
+    if not api_key:
+        raise ValueError("api_key cannot be empty")
+    session_id = str(uuid.uuid4())
+    with _sessions_lock:
+        _sessions[session_id] = {"api_key": api_key, "created_at": time.time()}
+    return session_id
+
+def _get_session_key(session_id: str):
+    with _sessions_lock:
+        s = _sessions.get(session_id)
+        if not s:
+            return None
+        if time.time() - s["created_at"] > SESSION_TTL:
+            del _sessions[session_id]
+            return None
+        return s["api_key"]
+
+def _resolve_api_key(request_args=None, request_json=None):
+    """Resolve api_key from session_id (preferred) or direct api_key (fallback for dev)."""
+    # Try session_id first
+    session_id = (request_args or {}).get("session_id", "")
+    if session_id:
+        key = _get_session_key(session_id)
+        if key:
+            return key
+        return None  # invalid session
+    # Fallback: direct api_key (local dev / curl)
+    return (request_args or {}).get("api_key", "")
+
 app = Flask(__name__, static_folder=str(BASE_DIR), static_url_path="")
+
+
+# ── Session endpoint ──────────────────────────────────────────────────────
+
+@app.route("/api/session", methods=["POST"])
+def create_session():
+    data = request.get_json(force=True) or {}
+    api_key = data.get("api_key", "").strip()
+    if not api_key:
+        return jsonify({"error": "api_key is required"}), 400
+    session_id = _create_session(api_key)
+    return jsonify({"session_id": session_id})
 
 
 # ── Static routes ─────────────────────────────────────────────────────────
