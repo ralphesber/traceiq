@@ -29,6 +29,7 @@ sys.path.insert(0, str(BASE_DIR))
 # Import helpers from server (they share the same DB connection logic)
 from server import (
     _get_db_conn,
+    _init_db,
     _update_job_status,
     _append_job_step,
     _complete_job,
@@ -237,7 +238,9 @@ def process_job(job: dict) -> None:
 
 
 def main():
-    print("[worker] starting, polling for jobs...", flush=True)
+    print("[worker] starting, initialising DB schema...", flush=True)
+    _init_db()
+    print("[worker] polling for jobs...", flush=True)
     while True:
         job = _claim_next_job()
         if job:
