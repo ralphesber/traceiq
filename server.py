@@ -952,6 +952,19 @@ def experiments_analyze_start():
     return jsonify({"job_id": job_id})
 
 
+@app.route("/jobs/<job_id>", methods=["GET"])
+def get_job_status(job_id: str):
+    """
+    GET /jobs/<job_id>
+    Returns: {id, status, job_type, steps, result, error, created_at, updated_at}
+    Polled by the UI every 2s to track job progress.
+    """
+    job = _get_job(job_id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+    return jsonify(job)
+
+
 @app.route("/experiments/analyze/stream", methods=["GET"])
 def experiments_analyze_stream():
     """
