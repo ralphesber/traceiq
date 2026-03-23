@@ -114,8 +114,174 @@ def _init_db():
                         ON history (generated_at DESC);
                 """)
         print("[server] DB: history table ready", flush=True)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS jobs (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                status TEXT NOT NULL DEFAULT 'queued',
+                job_type TEXT NOT NULL,
+                input JSONB NOT NULL,
+                steps TEXT[],
+                result JSONB,
+                error TEXT,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS jobs_status_idx ON jobs(status);
+            CREATE INDEX IF NOT EXISTS jobs_created_at_idx ON jobs(created_at DESC);
+        """)
+        print("[server] DB: jobs table ready", flush=True)
     except Exception as e:
         print(f"[server] DB init failed: {e}", flush=True)
+    finally:
+        conn.close()
+
+
+# ── Job queue helpers ─────────────────────────────────────────────────────
+
+def _create_job(job_type: str, input_data: dict) -> str | None:
+    """Insert a new queued job; returns job_id (UUID string) or None on failure."""
+    import psycopg2.extras
+    conn = _get_db_conn()
+    if not conn:
+        return None
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO jobs (job_type, input, steps)
+                    VALUES (%s, %s, %s)
+                    RETURNING id::text
+                    """,
+                    (job_type, psycopg2.extras.Json(input_data), [])
+                )
+                row = cur.fetchone()
+                return row[0] if row else None
+    except Exception as e:
+        print(f"[server] _create_job failed: {e}", flush=True)
+        return None
+    finally:
+        conn.close()
+
+
+def _update_job_status(job_id: str, status: str) -> None:
+    """Update job status (queued → running → done/failed)."""
+    conn = _get_db_conn()
+    if not conn:
+        return
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE jobs SET status = %s, updated_at = NOW() WHERE id = %s",
+                    (status, job_id)
+                )
+    except Exception as e:
+        print(f"[server] _update_job_status failed: {e}", flush=True)
+    finally:
+        conn.close()
+
+
+def _append_job_step(job_id: str, step_text: str) -> None:
+    """Append a progress step string to the job's steps array."""
+    conn = _get_db_conn()
+    if not conn:
+        return
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE jobs
+                    SET steps = array_append(COALESCE(steps, '{}'), %s),
+                        updated_at = NOW()
+                    WHERE id = %s
+                    """,
+                    (step_text, job_id)
+                )
+    except Exception as e:
+        print(f"[server] _append_job_step failed: {e}", flush=True)
+    finally:
+        conn.close()
+
+
+def _complete_job(job_id: str, result: dict) -> None:
+    """Mark job as done and write the final result JSON."""
+    import psycopg2.extras
+    conn = _get_db_conn()
+    if not conn:
+        return
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE jobs
+                    SET status = 'done', result = %s, updated_at = NOW()
+                    WHERE id = %s
+                    """,
+                    (psycopg2.extras.Json(result), job_id)
+                )
+    except Exception as e:
+        print(f"[server] _complete_job failed: {e}", flush=True)
+    finally:
+        conn.close()
+
+
+def _fail_job(job_id: str, error: str) -> None:
+    """Mark job as failed and store the error message."""
+    conn = _get_db_conn()
+    if not conn:
+        return
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE jobs
+                    SET status = 'failed', error = %s, updated_at = NOW()
+                    WHERE id = %s
+                    """,
+                    (error, job_id)
+                )
+    except Exception as e:
+        print(f"[server] _fail_job failed: {e}", flush=True)
+    finally:
+        conn.close()
+
+
+def _get_job(job_id: str) -> dict | None:
+    """Return job row as dict {id, status, job_type, steps, result, error, created_at, updated_at} or None."""
+    conn = _get_db_conn()
+    if not conn:
+        return None
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id::text, status, job_type, steps, result, error,
+                           created_at, updated_at
+                    FROM jobs WHERE id = %s
+                    """,
+                    (job_id,)
+                )
+                row = cur.fetchone()
+                if not row:
+                    return None
+                return {
+                    "id": row[0],
+                    "status": row[1],
+                    "job_type": row[2],
+                    "steps": row[3] or [],
+                    "result": row[4],
+                    "error": row[5],
+                    "created_at": row[6].isoformat() if row[6] else None,
+                    "updated_at": row[7].isoformat() if row[7] else None,
+                }
+    except Exception as e:
+        print(f"[server] _get_job failed: {e}", flush=True)
+        return None
     finally:
         conn.close()
 
