@@ -959,6 +959,10 @@ def get_job_status(job_id: str):
     Returns: {id, status, job_type, steps, result, error, created_at, updated_at}
     Polled by the UI every 2s to track job progress.
     """
+    # Validate UUID format to prevent injection
+    import re as _re
+    if not _re.match(r'^[0-9a-f-]{36}$', job_id):
+        return jsonify({"error": "Invalid job ID"}), 400
     job = _get_job(job_id)
     if not job:
         return jsonify({"error": "Job not found"}), 404

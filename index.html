@@ -1464,10 +1464,11 @@
    * Calls onStep(stepText) for each new step, onDone(result) on success,
    * onError(message) on failure.
    */
-  function pollJob(jobId, { onStep, onDone, onError }) {
+  function pollJob(jobId, { onStep, onDone, onError, maxAttempts = 300 }) {
     let lastStepCount = 0;
     let pollTimer = null;
     let stopped = false;
+    let attempts = 0;
 
     function stop() {
       stopped = true;
@@ -1499,7 +1500,13 @@
           stop();
           onError(job.error || 'Job failed');
         } else {
-          // still queued or running — poll again
+          // still queued or running — poll again (max 300 attempts = 10 min)
+          attempts++;
+          if (attempts >= maxAttempts) {
+            onError('Analysis timed out after 10 minutes');
+            stop();
+            return;
+          }
           pollTimer = setTimeout(tick, 2000);
         }
       } catch (e) {
