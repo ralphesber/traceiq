@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # Gevent monkey patch — must be first, before any other imports
+# subprocess=False: gevent's subprocess patch breaks Popen on Linux
 try:
     from gevent import monkey
-    monkey.patch_all()
+    monkey.patch_all(subprocess=False)
 except ImportError:
     pass  # local dev without gevent
 
