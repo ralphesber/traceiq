@@ -198,34 +198,116 @@ def _run_experiment_job(job: dict) -> dict:
     return result
 
 
+def _run_job_subprocess(job: dict) -> dict:
+    """Run a job in a child process with a hard timeout.
+    
+    Streams [TraceIQ] lines from the child's stderr to _append_job_step so the
+    UI still shows progress. Kills the child process on timeout — unlike threads,
+    this actually terminates the hanging agent.
+    """
+    import subprocess, tempfile, threading, queue as _queue
+
+    job_id = job["id"]
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        json.dump(job, f)
+        job_file = f.name
+
+    script = f"""
+import sys, json
+sys.path.insert(0, {repr(str(BASE_DIR))})
+with open({repr(job_file)}) as f:
+    job = json.load(f)
+if job['job_type'] == 'experiment':
+    from worker import _run_experiment_job
+    result = _run_experiment_job(job)
+else:
+    from worker import _run_hypothesis_job
+    result = _run_hypothesis_job(job)
+print(json.dumps(result, default=str))
+"""
+    env = os.environ.copy()
+    proc = subprocess.Popen(
+        [sys.executable, '-c', script],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, env=env, cwd=str(BASE_DIR),
+    )
+
+    stderr_lines = _queue.Queue()
+
+    def _read_stderr(pipe, q):
+        for line in pipe:
+            q.put(line)
+        q.put(None)  # sentinel
+
+    stderr_thread = threading.Thread(target=_read_stderr, args=(proc.stderr, stderr_lines), daemon=True)
+    stderr_thread.start()
+
+    deadline = time.time() + JOB_TIMEOUT
+    timed_out = False
+
+    # Drain stderr lines and relay [TraceIQ] steps to DB
+    while True:
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            print(f"[worker] job {job_id} hit {JOB_TIMEOUT}s timeout — killing subprocess", flush=True)
+            proc.kill()
+            timed_out = True
+            break
+        try:
+            line = stderr_lines.get(timeout=min(remaining, 5))
+        except _queue.Empty:
+            if proc.poll() is not None:
+                break  # process finished
+            continue
+        if line is None:
+            break  # stderr closed
+        line = line.strip()
+        print(f"[worker] stderr: {line}", flush=True)
+        if line.startswith("[TraceIQ]"):
+            text = line[len("[TraceIQ]"):].strip()
+            _append_job_step(job_id, text)
+
+    try:
+        os.unlink(job_file)
+    except Exception:
+        pass
+
+    if timed_out:
+        return {"error": f"Job timed out after {JOB_TIMEOUT} seconds — agent did not complete"}
+
+    proc.wait()
+    if proc.returncode != 0:
+        # Collect any remaining stderr
+        remaining_err = ""
+        try:
+            while True:
+                line = stderr_lines.get_nowait()
+                if line is None:
+                    break
+                remaining_err += line
+        except _queue.Empty:
+            pass
+        return {"error": f"Worker subprocess failed (exit {proc.returncode}): {remaining_err[-800:]}"}
+
+    stdout = proc.stdout.read()
+    try:
+        return json.loads(stdout)
+    except Exception as e:
+        return {"error": f"Could not parse job result: {e}. stdout: {stdout[:500]}"}
+
+
 def process_job(job: dict) -> None:
     """Route a job to the right runner; update DB with result or error."""
-    import concurrent.futures
-
     job_id = job["id"]
     job_type = job["job_type"]
 
     print(f"[worker] processing job {job_id} type={job_type}", flush=True)
 
     try:
-        runner = _run_hypothesis_job if job_type == "hypothesis" else (
-            _run_experiment_job if job_type == "experiment" else None
-        )
-        if runner is None:
-            raise ValueError(f"Unknown job_type: {job_type}")
+        result = _run_job_subprocess(job)
 
-        # Run with a hard timeout so a hanging agent can't block the worker forever
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(runner, job)
-            try:
-                result = future.result(timeout=JOB_TIMEOUT)
-            except concurrent.futures.TimeoutError:
-                print(f"[worker] job {job_id} timed out after {JOB_TIMEOUT}s", flush=True)
-                _fail_job(job_id, f"Job timed out after {JOB_TIMEOUT} seconds")
-                return
-
-        # If the result itself signals an error, still mark the job done
-        # (the UI will show the error from result.error)
+        # If the result signals an error, fail the job
         if result.get("error"):
             _fail_job(job_id, result["error"])
         else:

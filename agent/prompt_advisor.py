@@ -142,6 +142,8 @@ def run_prompt_advisor(
         model_name="claude-sonnet-4-6",
         api_key=anthropic_key,
         max_tokens=8000,
+        timeout=120,  # 2 min per API call — prevents silent hangs
+        max_retries=1,
     )
 
     agent = create_deep_agent(
@@ -167,9 +169,11 @@ End your response with a JSON block matching the required schema."""
     try:
         # Use stream() instead of invoke() so intermediate steps keep the SSE connection alive
         result = None
+        step_count = 0
         for chunk in agent.stream(
             {"messages": [{"role": "user", "content": user_message}]},
         ):
+            step_count += 1
             # Each chunk is a step — emit a heartbeat so the connection stays alive
             if "agent" in chunk:
                 msgs = chunk["agent"].get("messages", [])
@@ -180,8 +184,18 @@ End your response with a JSON block matching the required schema."""
                     if content and len(content) > 10:
                         preview = content[:80].replace("\n", " ")
                         print(f"[TraceIQ] Agent: {preview}...", file=sys.stderr, flush=True)
+            elif "tools" in chunk:
+                tool_msgs = chunk["tools"].get("messages", [])
+                for tm in tool_msgs:
+                    name = getattr(tm, "name", "") or ""
+                    if name:
+                        print(f"[TraceIQ] Tool: {name}", file=sys.stderr, flush=True)
             result = chunk  # keep last chunk
+        print(f"[TraceIQ] Agent stream finished after {step_count} chunks", file=sys.stderr, flush=True)
     except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[TraceIQ] Agent execution failed: {e}\n{tb}", file=sys.stderr, flush=True)
         return {
             "error": f"Agent execution failed: {e}",
             "experiment_name": experiment_name,
