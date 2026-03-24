@@ -88,11 +88,12 @@ def _get_db_conn():
 
 
 def _init_db():
-    """Create history table if it doesn't exist. Called at startup."""
+    """Create history and jobs tables if they don't exist. Called at startup."""
     conn = _get_db_conn()
     if not conn:
         return
     try:
+        # Create history table + index
         with conn:
             with conn.cursor() as cur:
                 cur.execute("""
@@ -109,9 +110,18 @@ def _init_db():
                         traces_analyzed INTEGER,
                         generated_at TIMESTAMPTZ,
                         data JSONB NOT NULL
-                    );
+                    )
+                """)
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("""
                     CREATE INDEX IF NOT EXISTS history_generated_at_idx
-                        ON history (generated_at DESC);
+                        ON history (generated_at DESC)
+                """)
+        # Create jobs table + indexes
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("""
                     CREATE TABLE IF NOT EXISTS jobs (
                         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                         status TEXT NOT NULL DEFAULT 'queued',
@@ -122,10 +132,14 @@ def _init_db():
                         error TEXT,
                         created_at TIMESTAMPTZ DEFAULT NOW(),
                         updated_at TIMESTAMPTZ DEFAULT NOW()
-                    );
-                    CREATE INDEX IF NOT EXISTS jobs_status_idx ON jobs(status);
-                    CREATE INDEX IF NOT EXISTS jobs_created_at_idx ON jobs(created_at DESC);
+                    )
                 """)
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("CREATE INDEX IF NOT EXISTS jobs_status_idx ON jobs(status)")
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("CREATE INDEX IF NOT EXISTS jobs_created_at_idx ON jobs(created_at DESC)")
         print("[server] DB: schema ready (history + jobs)", flush=True)
     except Exception as e:
         print(f"[server] DB init failed: {e}", flush=True)

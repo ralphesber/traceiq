@@ -38,6 +38,7 @@ from server import (
 
 
 POLL_INTERVAL = 2  # seconds between polls when queue is empty
+JOB_TIMEOUT = 480  # 8 minutes max per job before we kill it
 
 
 def _claim_next_job() -> dict | None:
@@ -199,18 +200,29 @@ def _run_experiment_job(job: dict) -> dict:
 
 def process_job(job: dict) -> None:
     """Route a job to the right runner; update DB with result or error."""
+    import concurrent.futures
+
     job_id = job["id"]
     job_type = job["job_type"]
 
     print(f"[worker] processing job {job_id} type={job_type}", flush=True)
 
     try:
-        if job_type == "hypothesis":
-            result = _run_hypothesis_job(job)
-        elif job_type == "experiment":
-            result = _run_experiment_job(job)
-        else:
+        runner = _run_hypothesis_job if job_type == "hypothesis" else (
+            _run_experiment_job if job_type == "experiment" else None
+        )
+        if runner is None:
             raise ValueError(f"Unknown job_type: {job_type}")
+
+        # Run with a hard timeout so a hanging agent can't block the worker forever
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(runner, job)
+            try:
+                result = future.result(timeout=JOB_TIMEOUT)
+            except concurrent.futures.TimeoutError:
+                print(f"[worker] job {job_id} timed out after {JOB_TIMEOUT}s", flush=True)
+                _fail_job(job_id, f"Job timed out after {JOB_TIMEOUT} seconds")
+                return
 
         # If the result itself signals an error, still mark the job done
         # (the UI will show the error from result.error)
