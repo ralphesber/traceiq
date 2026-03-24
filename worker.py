@@ -15,12 +15,14 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent.resolve()
 sys.path.insert(0, str(BASE_DIR))
 
-from server import (
+from db import (
     _get_db_conn,
     _init_db,
     _append_job_step,
     _complete_job,
     _fail_job,
+    _save_to_history,
+    _save_experiment_to_history,
 )
 
 POLL_INTERVAL = 2  # seconds between polls when queue is empty
@@ -106,7 +108,6 @@ def process_job(job: dict) -> None:
             _complete_job(job_id, result)
             # Save to history
             try:
-                from server import _save_experiment_to_history, _save_to_history
                 if job_type == "experiment":
                     _save_experiment_to_history(result)
                 else:
