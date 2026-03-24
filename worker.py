@@ -214,16 +214,28 @@ def _run_job_subprocess(job: dict) -> dict:
         job_file = f.name
 
     script = f"""
-import sys, json
+import sys, json, os
 sys.path.insert(0, {repr(str(BASE_DIR))})
 with open({repr(job_file)}) as f:
     job = json.load(f)
+inp = job['input']
+os.environ['LANGSMITH_API_KEY'] = inp.get('api_key', '')
 if job['job_type'] == 'experiment':
-    from worker import _run_experiment_job
-    result = _run_experiment_job(job)
+    from agent.prompt_advisor import run_prompt_advisor
+    result = run_prompt_advisor(
+        api_key=inp['api_key'],
+        dataset_id=inp['dataset_id'],
+        experiment_id=inp['experiment_id'],
+        question=inp.get('question', ''),
+    )
 else:
-    from worker import _run_hypothesis_job
-    result = _run_hypothesis_job(job)
+    from agent.hypothesis_agent import run_hypothesis_agent
+    result = run_hypothesis_agent(
+        api_key=inp['api_key'],
+        project=inp['project'],
+        hypothesis=inp['hypothesis'],
+        days=int(inp.get('days', 30)),
+    )
 print(json.dumps(result, default=str))
 """
     env = os.environ.copy()
