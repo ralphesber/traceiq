@@ -167,12 +167,12 @@ def make_experiment_tools(api_key: str) -> list:
     # -----------------------------------------------------------------------
 
     @tool
-    def fetch_experiment_rows(experiment_id: str, limit: int = 100) -> str:
+    def fetch_experiment_rows(experiment_id: str, limit: int = 50) -> str:
         """Fetch runs for an experiment session with scores and previews.
 
         Args:
             experiment_id: The experiment session UUID.
-            limit: Maximum number of rows to fetch (default 100).
+            limit: Maximum number of rows to fetch (default 50).
 
         Returns a JSON list of rows with id, input_preview, output_preview, scores,
         status, and error.
@@ -183,7 +183,7 @@ def make_experiment_tools(api_key: str) -> list:
             data = _post(api_key, "/runs/query", {
                 "session": [experiment_id],
                 "filter": "eq(is_root, true)",
-                "limit": limit,
+                "limit": min(limit, 50),  # hard cap at 50
             })
 
             runs = data.get("runs", []) if isinstance(data, dict) else data

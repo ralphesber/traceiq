@@ -110,7 +110,7 @@ def run_prompt_advisor(
         model_name="claude-sonnet-4-6",
         api_key=anthropic_key,
         max_tokens=8000,
-        timeout=60,      # per API call
+        timeout=180,     # 3 min per API call — large context needs more time
         max_retries=1,
     )
 
