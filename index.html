@@ -925,11 +925,7 @@
       </div>
     </div>
 
-    <!-- Mode tabs -->
-    <div class="mode-tabs">
-      <button class="mode-tab active" id="tab-traces" onclick="switchMode('traces')">🔬 Traces</button>
-      <button class="mode-tab" id="tab-experiments" onclick="switchMode('experiments')">🧪 Experiments</button>
-    </div>
+    <!-- Traces tab removed — experiments only -->
 
     <div class="card">
       <div class="hypothesis-header">
@@ -1013,11 +1009,7 @@
       </div>
     </div>
 
-    <!-- Mode tabs -->
-    <div class="mode-tabs">
-      <button class="mode-tab" id="tab-traces-exp" onclick="switchMode('traces')">🔬 Traces</button>
-      <button class="mode-tab active" id="tab-experiments-exp" onclick="switchMode('experiments')">🧪 Experiments</button>
-    </div>
+    <!-- Traces tab removed — experiments only -->
 
     <div class="card">
       <h1>Improve my prompt</h1>
@@ -1088,7 +1080,7 @@
           <span class="logo-sub" id="results-logo-sub">Hypothesis Testing</span>
         </div>
       </div>
-      <button class="btn btn-ghost" id="results-back-btn" onclick="showHypothesisScreen()">← New hypothesis</button>
+      <button class="btn btn-ghost" id="results-back-btn" onclick="showScreen('screen-experiment')">← New analysis</button>
     </div>
 
     <div id="results-content">
@@ -1109,7 +1101,7 @@
           <span class="logo-sub">History</span>
         </div>
       </div>
-      <button class="btn btn-ghost" onclick="showHypothesisScreen()">← Back</button>
+      <button class="btn btn-ghost" onclick="showScreen('screen-experiment')">← Back</button>
     </div>
 
     <div id="history-content">
@@ -1147,7 +1139,7 @@
     if (tabExpExp) tabExpExp.classList.toggle('active', mode === 'experiments');
 
     if (mode === 'traces') {
-      showScreen('screen-hypothesis');
+      showScreen('screen-experiment'); // traces removed — always go to experiments
     } else {
       showScreen('screen-experiment');
       // Auto-load datasets if we have an API key and none loaded yet
@@ -1267,7 +1259,7 @@
         ⚠ Couldn't load overview: ${esc(msg)}
       </p>
       <div class="overview-cta-row">
-        <button class="btn-ov-primary" onclick="showHypothesisScreen()">Skip to analysis →</button>
+        <button class="btn-ov-primary" onclick="showScreen('screen-experiment')">Analyse experiments →</button>
       </div>
     `;
     document.getElementById('overview-content').style.display = '';
@@ -1349,9 +1341,9 @@
       </div>
       ${changedSection}
       <div class="overview-cta-row">
-        <button class="btn-ov-primary" onclick="showHypothesisScreen()">Dig into traces →</button>
+        <button class="btn-ov-primary" onclick="showScreen('screen-experiment')">Analyse experiments →</button>
         <button class="btn-ov-secondary" onclick="goToExperimentsFromOverview()">Improve my prompt →</button>
-        <button class="btn-ov-skip" onclick="showHypothesisScreen()">Skip to analysis →</button>
+        <button class="btn-ov-skip" onclick="showScreen('screen-experiment')">Analyse experiments →</button>
       </div>
     `;
 
@@ -1422,7 +1414,7 @@
     resetLoadingSteps();
     document.getElementById('results-logo-sub').textContent = 'Hypothesis Testing';
     document.getElementById('results-back-btn').textContent = '← New hypothesis';
-    document.getElementById('results-back-btn').onclick = () => showHypothesisScreen();
+    document.getElementById('results-back-btn').onclick = () => showScreen('screen-experiment');
     // Render suggestions — uses overviewData if available, otherwise generic fallbacks
     renderSuggestions(state.overviewData);
     showScreen('screen-hypothesis');
@@ -1590,7 +1582,7 @@
           renderResults(result);
           document.getElementById('results-logo-sub').textContent = 'Hypothesis Testing';
           document.getElementById('results-back-btn').textContent = '← New hypothesis';
-          document.getElementById('results-back-btn').onclick = () => showHypothesisScreen();
+          document.getElementById('results-back-btn').onclick = () => showScreen('screen-experiment');
           showScreen('screen-results');
         },
         onError(message) {
@@ -1598,7 +1590,7 @@
           renderError('Analysis failed: ' + message);
           document.getElementById('results-logo-sub').textContent = 'Hypothesis Testing';
           document.getElementById('results-back-btn').textContent = '← New hypothesis';
-          document.getElementById('results-back-btn').onclick = () => showHypothesisScreen();
+          document.getElementById('results-back-btn').onclick = () => showScreen('screen-experiment');
           showScreen('screen-results');
         },
       });
@@ -1889,7 +1881,7 @@
         renderResults(data);
         document.getElementById('results-logo-sub').textContent = 'Hypothesis Testing';
         document.getElementById('results-back-btn').textContent = '← New hypothesis';
-        document.getElementById('results-back-btn').onclick = () => showHypothesisScreen();
+        document.getElementById('results-back-btn').onclick = () => showScreen('screen-experiment');
       }
       showScreen('screen-results');
     } catch (err) {
