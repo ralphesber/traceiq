@@ -652,8 +652,19 @@ def _safe_filename(filename: str) -> bool:
     return bool(re.match(r"^[\w\-\.]+\.json$", filename)) and ".." not in filename
 
 
+def _require_session():
+    """Return None if request has a valid session, else a 401 response."""
+    session_id = request.args.get("session_id", "") or (request.get_json(silent=True) or {}).get("session_id", "")
+    if not session_id or not _get_session_key(session_id):
+        return jsonify({"error": "Authentication required — please connect with your LangSmith API key first"}), 401
+    return None
+
+
 @app.route("/history", methods=["GET"])
 def list_history():
+    err = _require_session()
+    if err:
+        return err
     conn = _get_db_conn()
     if conn:
         try:
@@ -712,6 +723,9 @@ def list_history():
 
 @app.route("/history/<filename>", methods=["GET"])
 def get_history_entry(filename):
+    err = _require_session()
+    if err:
+        return err
     if not _safe_filename(filename):
         return jsonify({"error": "Invalid filename"}), 400
 
@@ -739,6 +753,9 @@ def get_history_entry(filename):
 
 @app.route("/history/<filename>", methods=["DELETE"])
 def delete_history_entry(filename):
+    err = _require_session()
+    if err:
+        return err
     if not _safe_filename(filename):
         return jsonify({"error": "Invalid filename"}), 400
 

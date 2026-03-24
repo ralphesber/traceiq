@@ -1795,7 +1795,7 @@
       <div class="history-empty"><div class="history-empty-icon">⏳</div><div>Loading…</div></div>
     `;
     try {
-      const resp = await fetch('/history');
+      const resp = await fetch('/history?session_id=' + encodeURIComponent(state.sessionId || state.apiKey));
       const entries = await resp.json();
       renderHistory(entries);
     } catch (err) {
@@ -1870,7 +1870,7 @@
 
   async function openHistoryEntry(filename, isExp) {
     try {
-      const resp = await fetch(`/history/${encodeURIComponent(filename)}`);
+      const resp = await fetch(`/history/${encodeURIComponent(filename)}?session_id=${encodeURIComponent(state.sessionId || state.apiKey)}`);
       const data = await resp.json();
       if (isExp || data.result_type === 'experiment_analysis') {
         renderExpResults(data);
@@ -1893,7 +1893,7 @@
     event.stopPropagation();
     if (!confirm('Delete this history entry?')) return;
     try {
-      await fetch(`/history/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+      await fetch(`/history/${encodeURIComponent(filename)}?session_id=${encodeURIComponent(state.sessionId || state.apiKey)}`, { method: 'DELETE' });
       await loadHistory();
     } catch (err) {
       alert('Failed to delete: ' + err.message);
