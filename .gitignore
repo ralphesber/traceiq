@@ -1,0 +1,36 @@
+# Environment variables — never commit
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Output files
+hypothesis_output.json
+analysis_output.json
+insights_output.json
+cost_model.json
+
+# History (local only)
+history/
+
+# Snapshots
+snapshots/
+
+# Logs
+*.log
+server.log
+
+# OS
+.DS_Store
+Thumbs.db
