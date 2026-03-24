@@ -1,15 +1,17 @@
 """
 TraceIQ Prompt Advisor — agentic analysis of experiment results to recommend prompt improvements.
 
-Uses the deepagents SDK with experiment tools to analyze LangSmith experiment data
-and generate actionable prompt improvement recommendations.
+Uses the Anthropic SDK directly in a simple tool-calling loop.
+No deepagents/LangGraph wrappers — full control over timeouts and execution.
 """
 
 import json
 import os
 import sys
+import time
 from datetime import datetime, timezone
-from pathlib import Path
+
+import anthropic
 
 
 SYSTEM_PROMPT = """You are a prompt engineering advisor for AI grading/evaluation systems.
@@ -23,23 +25,17 @@ You have tools to fetch LangSmith experiment results:
 
 ## How to Plan Your Investigation
 
-**Read the user's question first.** Use it to decide which tools to call and in what order. Optimize your investigation for exactly what they're asking — don't follow a fixed script.
+Read the user's question first. Use it to decide which tools to call and in what order.
 
 Examples:
-- "Why is marks_exact_match low?" → go straight to `get_failing_rows(metric="marks_exact_match")`, read the patterns, explain the root cause
-- "Compare the last two experiments" → use `compare_experiments`, highlight the deltas
-- "Which question types score worst?" → `fetch_experiment_rows` to get scores, then look for patterns across question types in the data
-- "What should I improve?" → `fetch_experiment_rows` to identify weakest metrics, then `get_failing_rows` for each to find patterns
+- "Why is marks_exact_match low?" → go straight to get_failing_rows, read the patterns, explain the root cause
+- "What should I improve?" → fetch_experiment_rows to identify weakest metrics, then get_failing_rows for each
 
-**Use only the tools you need.** If the question is specific, skip broad overview steps. If it's open-ended, start with `fetch_experiment_rows` to find the signal, then drill in.
+Be evidence-driven. Every finding must cite actual data from the tool output.
 
-**Be evidence-driven.** Every finding must cite actual data from the tool output — real metric values, real input/output excerpts, real counts.
+## Output Requirement
 
-## CRITICAL Output Requirement
-
-You MUST end your FINAL response with a JSON block in a ```json code fence. NO markdown tables, NO prose after the JSON block. The JSON block MUST be the very last thing in your response.
-
-The JSON MUST match this schema exactly:
+End your FINAL response with a JSON block in a ```json code fence. The JSON MUST match this schema:
 
 ```json
 {
@@ -49,7 +45,7 @@ The JSON MUST match this schema exactly:
   "weakest_metrics": ["metric1", "metric2"],
   "failure_patterns": [
     {
-      "pattern": "short description of failure pattern",
+      "pattern": "short description",
       "affected_metric": "metric_name",
       "frequency": "X of Y rows",
       "example_input": "actual input excerpt (max 300 chars)",
@@ -69,90 +65,61 @@ The JSON MUST match this schema exactly:
 }
 ```
 
-IMPORTANT: 
-- The ```json block must appear LAST in your response
-- overall_scores must be a flat dict of metric_name -> average float (0.0 to 1.0)
-- weakest_metrics is a list of the 2-3 metric names with the lowest average scores
-- Include at least 2-5 failure_patterns and 3-5 recommendations
-- Be specific: cite real metric values, real score numbers, real examples from tool output
+The ```json block must be LAST in your response.
 """
+
+MODEL = "claude-sonnet-4-6"
+MAX_TOKENS = 8000
+API_TIMEOUT = 120  # seconds per Anthropic API call
+MAX_ITERATIONS = 20  # max tool-call rounds before giving up
 
 
 def run_prompt_advisor(
-    api_key: str,           # LangSmith key
+    api_key: str,
     dataset_id: str,
     experiment_id: str,
-    question: str = "",     # User's free-text question / focus area
+    question: str = "",
 ) -> dict:
-    """Run agentic prompt advisor analysis using the deepagents SDK.
+    """Run agentic prompt advisor analysis using Anthropic SDK directly.
 
     Returns a result dict with experiment_name, dataset_name, overall_scores,
     weakest_metrics, failure_patterns, recommendations, generated_at.
     """
-    try:
-        from deepagents import create_deep_agent
-        from langchain_anthropic import ChatAnthropic
-    except ImportError as e:
-        return {
-            "error": f"deepagents not installed: {e}. Run: pip3 install deepagents langchain-anthropic",
-            "experiment_id": experiment_id,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-        }
-
-    from agent.experiment_tools import make_experiment_tools
-
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
     if not anthropic_key:
-        return {
-            "error": "ANTHROPIC_API_KEY not set",
-            "experiment_id": experiment_id,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-        }
+        return {"error": "ANTHROPIC_API_KEY not set", "experiment_id": experiment_id,
+                "generated_at": datetime.now(timezone.utc).isoformat()}
 
-    # Fetch experiment + dataset metadata for context
+    from agent.experiment_tools import (
+        make_experiment_tools,
+        _get as ls_get,
+    )
+
+    # Fetch metadata
     experiment_name = experiment_id
     dataset_name = dataset_id
     try:
-        from agent.experiment_tools import _get
-        # Fetch dataset name
-        try:
-            ds_data = _get(api_key, f"/datasets/{dataset_id}")
-            dataset_name = ds_data.get("name", dataset_id)
-        except Exception:
-            pass
-
-        # Fetch experiment name
-        try:
-            sessions_data = _get(api_key, "/sessions", params={"reference_dataset_id": dataset_id})
-            sessions = sessions_data if isinstance(sessions_data, list) else sessions_data.get("sessions", [])
-            for s in sessions:
-                if s.get("id") == experiment_id:
-                    experiment_name = s.get("name", experiment_id)
-                    break
-        except Exception:
-            pass
-    except Exception:
-        pass
+        ds = ls_get(api_key, f"/datasets/{dataset_id}")
+        dataset_name = ds.get("name", dataset_id)
+    except Exception as e:
+        print(f"[TraceIQ] Warning: could not fetch dataset name: {e}", file=sys.stderr, flush=True)
+    try:
+        sessions = ls_get(api_key, "/sessions", params={"reference_dataset_id": dataset_id})
+        sessions = sessions if isinstance(sessions, list) else sessions.get("sessions", [])
+        for s in sessions:
+            if s.get("id") == experiment_id:
+                experiment_name = s.get("name", experiment_id)
+                break
+    except Exception as e:
+        print(f"[TraceIQ] Warning: could not fetch experiment name: {e}", file=sys.stderr, flush=True)
 
     print(f"[TraceIQ] Analyzing experiment '{experiment_name}' on dataset '{dataset_name}'...", file=sys.stderr, flush=True)
 
-    tools = make_experiment_tools(api_key)
+    # Build tools for Anthropic
+    lc_tools = make_experiment_tools(api_key)
+    anthropic_tools = _lc_tools_to_anthropic(lc_tools)
+    tool_map = {t.name: t for t in lc_tools}
 
-    model = ChatAnthropic(
-        model_name="claude-sonnet-4-6",
-        api_key=anthropic_key,
-        max_tokens=8000,
-        timeout=120,  # 2 min per API call — prevents silent hangs
-        max_retries=1,
-    )
-
-    agent = create_deep_agent(
-        model=model,
-        tools=tools,
-        system_prompt=SYSTEM_PROMPT,
-    )
-
-    # Build user message
     question_line = f'"{question.strip()}"' if question.strip() else "What prompt improvements would increase eval scores?"
 
     user_message = f"""Experiment: "{experiment_name}" (id: {experiment_id})
@@ -160,84 +127,86 @@ Dataset: "{dataset_name}" (id: {dataset_id})
 
 User question: {question_line}
 
-Use your tools to investigate this question. Plan your own approach based on what's being asked — use only the tools you need, in the order that makes sense for this specific question.
+Use your tools to investigate. End your response with a JSON block matching the required schema."""
 
-End your response with a JSON block matching the required schema."""
+    client = anthropic.Anthropic(api_key=anthropic_key, timeout=API_TIMEOUT)
+    messages = [{"role": "user", "content": user_message}]
 
     print(f"[TraceIQ] Starting agent investigation (question: '{question[:80]}')...", file=sys.stderr, flush=True)
 
-    try:
-        # Use stream() instead of invoke() so intermediate steps keep the SSE connection alive
-        result = None
-        step_count = 0
-        for chunk in agent.stream(
-            {"messages": [{"role": "user", "content": user_message}]},
-        ):
-            step_count += 1
-            # Each chunk is a step — emit a heartbeat so the connection stays alive
-            if "agent" in chunk:
-                msgs = chunk["agent"].get("messages", [])
-                for msg in msgs:
-                    content = getattr(msg, "content", "") or ""
-                    if isinstance(content, list):
-                        content = " ".join(b.get("text", "") if isinstance(b, dict) else str(b) for b in content)
-                    if content and len(content) > 10:
-                        preview = content[:80].replace("\n", " ")
-                        print(f"[TraceIQ] Agent: {preview}...", file=sys.stderr, flush=True)
-            elif "tools" in chunk:
-                tool_msgs = chunk["tools"].get("messages", [])
-                for tm in tool_msgs:
-                    name = getattr(tm, "name", "") or ""
-                    if name:
-                        print(f"[TraceIQ] Tool: {name}", file=sys.stderr, flush=True)
-            result = chunk  # keep last chunk
-        print(f"[TraceIQ] Agent stream finished after {step_count} chunks", file=sys.stderr, flush=True)
-    except Exception as e:
-        import traceback
-        tb = traceback.format_exc()
-        print(f"[TraceIQ] Agent execution failed: {e}\n{tb}", file=sys.stderr, flush=True)
-        return {
-            "error": f"Agent execution failed: {e}",
-            "experiment_name": experiment_name,
-            "dataset_name": dataset_name,
-            "experiment_id": experiment_id,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-        }
-
-    # Extract final message content — stream() returns last chunk which may be nested
-    if result is None:
-        return {"error": "Agent produced no output", "experiment_name": experiment_name, "dataset_name": dataset_name, "experiment_id": experiment_id, "generated_at": datetime.now(timezone.utc).isoformat()}
-    # Unwrap nested structure from stream() chunks
-    if "agent" in result:
-        result = result["agent"]
-    messages = result.get("messages", [])
     final_content = ""
-    for msg in reversed(messages):
-        content = ""
-        if hasattr(msg, "content"):
-            content = msg.content
-        elif isinstance(msg, dict):
-            content = msg.get("content", "")
+    for iteration in range(MAX_ITERATIONS):
+        print(f"[TraceIQ] Calling Claude (iteration {iteration + 1})...", file=sys.stderr, flush=True)
+        try:
+            response = client.messages.create(
+                model=MODEL,
+                max_tokens=MAX_TOKENS,
+                system=SYSTEM_PROMPT,
+                tools=anthropic_tools,
+                messages=messages,
+            )
+        except anthropic.APITimeoutError:
+            return {"error": f"Anthropic API timed out after {API_TIMEOUT}s",
+                    "experiment_name": experiment_name, "dataset_name": dataset_name,
+                    "experiment_id": experiment_id, "generated_at": datetime.now(timezone.utc).isoformat()}
+        except Exception as e:
+            return {"error": f"Anthropic API error: {e}",
+                    "experiment_name": experiment_name, "dataset_name": dataset_name,
+                    "experiment_id": experiment_id, "generated_at": datetime.now(timezone.utc).isoformat()}
 
-        if isinstance(content, list):
-            for block in content:
-                if isinstance(block, dict) and block.get("type") == "text":
-                    content = block.get("text", "")
-                    break
-                elif isinstance(block, str):
-                    content = block
-                    break
+        # Collect text content for final output
+        text_parts = [b.text for b in response.content if hasattr(b, "text")]
+        if text_parts:
+            final_content = "\n".join(text_parts)
+            preview = final_content[:80].replace("\n", " ")
+            print(f"[TraceIQ] Agent: {preview}...", file=sys.stderr, flush=True)
 
-        if content and isinstance(content, str) and len(content) > 50:
-            final_content = content
+        # Done — no more tool calls
+        if response.stop_reason == "end_turn":
+            print(f"[TraceIQ] Agent finished after {iteration + 1} iterations.", file=sys.stderr, flush=True)
             break
+
+        # Process tool calls
+        tool_uses = [b for b in response.content if b.type == "tool_use"]
+        if not tool_uses:
+            print(f"[TraceIQ] No tool calls, stop_reason={response.stop_reason}", file=sys.stderr, flush=True)
+            break
+
+        # Add assistant message to history
+        messages.append({"role": "assistant", "content": response.content})
+
+        # Execute each tool and collect results
+        tool_results = []
+        for tu in tool_uses:
+            tool_name = tu.name
+            tool_input = tu.input
+            print(f"[TraceIQ] Tool: {tool_name}({json.dumps(tool_input)[:80]})", file=sys.stderr, flush=True)
+            try:
+                lc_tool = tool_map.get(tool_name)
+                if lc_tool is None:
+                    result = f"Unknown tool: {tool_name}"
+                else:
+                    result = lc_tool.invoke(tool_input)
+                    if not isinstance(result, str):
+                        result = json.dumps(result, default=str)
+            except Exception as e:
+                result = f"Tool error: {e}"
+                print(f"[TraceIQ] Tool {tool_name} error: {e}", file=sys.stderr, flush=True)
+
+            tool_results.append({
+                "type": "tool_result",
+                "tool_use_id": tu.id,
+                "content": result[:8000],  # cap tool output
+            })
+
+        messages.append({"role": "user", "content": tool_results})
+    else:
+        print(f"[TraceIQ] Hit max iterations ({MAX_ITERATIONS})", file=sys.stderr, flush=True)
 
     print(f"[TraceIQ] Agent finished. Extracting recommendations...", file=sys.stderr, flush=True)
 
-    # Parse the JSON verdict from the final message
     parsed = _extract_json_result(final_content)
 
-    # Build the output, merging parsed data with our known metadata
     output = {
         "experiment_name": parsed.get("experiment_name", experiment_name),
         "dataset_name": parsed.get("dataset_name", dataset_name),
@@ -250,26 +219,45 @@ End your response with a JSON block matching the required schema."""
         "recommendations": parsed.get("recommendations", []),
         "generated_at": parsed.get("generated_at", datetime.now(timezone.utc).isoformat()),
         "agent_reasoning": final_content[:3000] if final_content else "",
-        # Mark as experiment analysis
         "result_type": "experiment_analysis",
     }
 
-    # If parsing failed, try to extract structured data from the raw analysis text
     if not output["recommendations"] and final_content:
         output["raw_analysis"] = final_content[:5000]
-        # Try to extract recommendations from markdown table rows if present
         extracted = _extract_from_markdown(final_content, experiment_name, dataset_name)
         if extracted.get("recommendations"):
             output["recommendations"] = extracted["recommendations"]
             output["failure_patterns"] = extracted.get("failure_patterns", [])
             if extracted.get("overall_scores"):
                 output["overall_scores"] = extracted["overall_scores"]
-            if extracted.get("weakest_metrics"):
-                output["weakest_metrics"] = extracted["weakest_metrics"]
         else:
             output["error"] = "Could not extract structured recommendations — see raw_analysis"
 
     return output
+
+
+def _lc_tools_to_anthropic(lc_tools) -> list:
+    """Convert LangChain tools to Anthropic tool format."""
+    result = []
+    for t in lc_tools:
+        # Try to get the JSON schema from the tool
+        try:
+            schema = t.args_schema.model_json_schema() if hasattr(t, "args_schema") and t.args_schema else {}
+        except Exception:
+            schema = {}
+
+        input_schema = {
+            "type": "object",
+            "properties": schema.get("properties", {}),
+            "required": schema.get("required", []),
+        }
+
+        result.append({
+            "name": t.name,
+            "description": t.description or "",
+            "input_schema": input_schema,
+        })
+    return result
 
 
 def _extract_from_markdown(text: str, experiment_name: str, dataset_name: str) -> dict:
@@ -285,7 +273,6 @@ def _extract_from_markdown(text: str, experiment_name: str, dataset_name: str) -
         "recommendations": [],
     }
 
-    # Extract recommendations from markdown table (| Priority | Change | ... |)
     table_rows = re.findall(r'\|\s*\*\*?(\d+)\*\*?\s*\|(.+?)\|(.+?)\|', text)
     for row in table_rows:
         try:
@@ -302,29 +289,6 @@ def _extract_from_markdown(text: str, experiment_name: str, dataset_name: str) -
         except Exception:
             pass
 
-    # Also look for numbered list pattern: 1. **Change** or 1. Change
-    if not result["recommendations"]:
-        numbered = re.findall(r'(?:^|\n)\s*(\d+)\.\s+(?:\*\*)?(.+?)(?:\*\*)?\s*[-–]\s*(.+?)(?=\n|$)', text)
-        for match in numbered:
-            priority = int(match[0].strip())
-            change = match[1].strip()
-            impact = match[2].strip()
-            if change and len(change) > 5:
-                result["recommendations"].append({
-                    "priority": priority,
-                    "change": change,
-                    "rationale": "",
-                    "expected_impact": impact,
-                })
-
-    # Extract metric averages from backtick patterns like `metric_name` averages **-0.70**
-    metric_matches = re.findall(r'`([a-z_]+)`.*?averages?\s+\*\*([+-]?\d+\.?\d*)\*\*', text)
-    for metric, val in metric_matches:
-        try:
-            result["overall_scores"][metric] = float(val)
-        except ValueError:
-            pass
-
     return result
 
 
@@ -335,7 +299,6 @@ def _extract_json_result(text: str) -> dict:
 
     import re
 
-    # Try ```json ... ``` block first
     json_block_match = re.search(r'```json\s*(\{.*?\})\s*```', text, re.DOTALL)
     if json_block_match:
         try:
@@ -343,7 +306,6 @@ def _extract_json_result(text: str) -> dict:
         except json.JSONDecodeError:
             pass
 
-    # Try to find the last { ... } block that has our schema keys
     brace_starts = [i for i, c in enumerate(text) if c == '{']
     for start in reversed(brace_starts):
         depth = 0
