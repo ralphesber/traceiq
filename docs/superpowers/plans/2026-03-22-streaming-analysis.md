@@ -327,7 +327,7 @@ sleep 2 && cat server.log
 - [ ] **Step 2: Smoke test the SSE endpoint directly**
 
 ```bash
-curl -N "http://localhost:5050/analyze/stream?hypothesis=test+hypothesis&project=autograding_production&api_key=REDACTED_LANGSMITH_KEY&days=7&split_mode=time_split" 2>/dev/null | head -20
+curl -N "http://localhost:5050/analyze/stream?hypothesis=test+hypothesis&project=autograding_production&api_key=lsv2_pt_YOUR_LANGSMITH_KEY_HERE&days=7&split_mode=time_split" 2>/dev/null | head -20
 ```
 Expected: lines starting with `data: {"type":"step",...}` then eventually `data: {"type":"result",...}`
 

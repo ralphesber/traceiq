@@ -158,7 +158,7 @@ nohup python3 server.py > server.log 2>&1 & sleep 2
 # Create session
 SID=$(curl -s -X POST http://localhost:5050/api/session \
   -H "Content-Type: application/json" \
-  -d '{"api_key":"REDACTED_LANGSMITH_KEY"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['session_id'])")
+  -d '{"api_key":"lsv2_pt_YOUR_LANGSMITH_KEY_HERE"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['session_id'])")
 echo "Session: $SID"
 
 # Use session_id (not api_key) in GET request
@@ -168,7 +168,7 @@ Expected: valid overview JSON
 
 - [ ] **Verify fallback still works (api_key direct)**
 ```bash
-curl -s "http://localhost:5050/overview?project=autograding_production&api_key=REDACTED_LANGSMITH_KEY" | python3 -m json.tool | head -5
+curl -s "http://localhost:5050/overview?project=autograding_production&api_key=lsv2_pt_YOUR_LANGSMITH_KEY_HERE" | python3 -m json.tool | head -5
 ```
 Expected: same valid overview JSON
 
@@ -262,7 +262,7 @@ Expected: all pass
 # Session flow
 SID=$(curl -s -X POST http://localhost:5050/api/session \
   -H "Content-Type: application/json" \
-  -d '{"api_key":"REDACTED_LANGSMITH_KEY"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['session_id'])")
+  -d '{"api_key":"lsv2_pt_YOUR_LANGSMITH_KEY_HERE"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['session_id'])")
 
 # SSE stream with session_id
 curl -N --max-time 10 "http://localhost:5050/analyze/stream?hypothesis=test&project=autograding_production&session_id=$SID&days=7&split_mode=time_split" 2>/dev/null | head -5
