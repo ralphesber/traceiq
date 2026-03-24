@@ -125,17 +125,39 @@ Use your tools to investigate. End with a JSON block matching the required schem
     log(f"Starting agent (max {RECURSION_LIMIT} tool calls, {AGENT_TIMEOUT}s timeout)...")
 
     async def _run():
-        return await asyncio.wait_for(
-            agent.ainvoke(
+        final_state = None
+        async with asyncio.timeout(AGENT_TIMEOUT):
+            async for chunk in agent.astream(
                 {"messages": [{"role": "user", "content": user_message}]},
                 config={"recursion_limit": RECURSION_LIMIT},
-            ),
-            timeout=AGENT_TIMEOUT,
-        )
+                stream_mode="updates",
+            ):
+                if "agent" in chunk:
+                    # Claude is thinking / responding
+                    msgs = chunk["agent"].get("messages", [])
+                    for msg in msgs:
+                        content = getattr(msg, "content", "") or ""
+                        if isinstance(content, list):
+                            content = " ".join(
+                                b.get("text", "") if isinstance(b, dict) else str(b)
+                                for b in content if isinstance(b, dict) and b.get("type") == "text"
+                            )
+                        if content and len(content) > 10:
+                            preview = content[:80].replace("\n", " ")
+                            log(f"Agent: {preview}...")
+                elif "tools" in chunk:
+                    # Tool was called and returned
+                    msgs = chunk["tools"].get("messages", [])
+                    for msg in msgs:
+                        name = getattr(msg, "name", "") or ""
+                        if name:
+                            log(f"Tool done: {name}")
+                final_state = chunk
+        return final_state
 
     try:
-        result_state = asyncio.run(_run())
-    except asyncio.TimeoutError:
+        last_chunk = asyncio.run(_run())
+    except TimeoutError:
         log(f"Agent timed out after {AGENT_TIMEOUT}s")
         return {"error": f"Agent timed out after {AGENT_TIMEOUT} seconds",
                 "experiment_name": experiment_name, "dataset_name": dataset_name,
@@ -149,15 +171,16 @@ Use your tools to investigate. End with a JSON block matching the required schem
 
     log("Agent finished. Extracting recommendations...")
 
-    # Extract final text from last AI message
+    # Extract final text from the last agent chunk
     final_content = ""
-    for msg in reversed(result_state.get("messages", [])):
-        content = getattr(msg, "content", "") or ""
-        if isinstance(content, list):
-            content = " ".join(b.get("text", "") if isinstance(b, dict) else str(b) for b in content)
-        if content and len(content) > 50:
-            final_content = content
-            break
+    if last_chunk and "agent" in last_chunk:
+        for msg in reversed(last_chunk["agent"].get("messages", [])):
+            content = getattr(msg, "content", "") or ""
+            if isinstance(content, list):
+                content = " ".join(b.get("text", "") if isinstance(b, dict) else str(b) for b in content)
+            if content and len(content) > 50:
+                final_content = content
+                break
 
     parsed = _extract_json_result(final_content)
 
