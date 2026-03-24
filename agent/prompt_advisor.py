@@ -1,17 +1,21 @@
 """
 TraceIQ Prompt Advisor — agentic analysis of experiment results.
 
-Direct Anthropic SDK tool-calling loop. No LangGraph, no wrappers.
-Full control over timeouts and execution.
+Uses LangGraph create_react_agent with:
+- recursion_limit=10 (max 10 tool calls per run)
+- ainvoke() so asyncio.wait_for() can enforce a hard timeout
 """
 
+import asyncio
 import json
 import os
 import sys
 from datetime import datetime, timezone
 from typing import Callable
 
-import anthropic
+from langchain_anthropic import ChatAnthropic
+from langgraph.prebuilt import create_react_agent
+
 
 SYSTEM_PROMPT = """You are a prompt engineering advisor for AI grading/evaluation systems.
 
@@ -55,10 +59,8 @@ End your FINAL response with a JSON block in a ```json code fence:
 ```
 """
 
-MODEL = "claude-sonnet-4-6"
-MAX_TOKENS = 8000
-API_TIMEOUT = 120  # seconds per API call
-MAX_ITERATIONS = 15
+AGENT_TIMEOUT = 300     # 5 min hard wall for the entire agent run
+RECURSION_LIMIT = 10    # max tool-call rounds before LangGraph forces a stop
 
 
 def run_prompt_advisor(
@@ -68,6 +70,7 @@ def run_prompt_advisor(
     question: str = "",
     step_callback: Callable[[str], None] = None,
 ) -> dict:
+    """Run agentic prompt advisor. Blocking — uses asyncio.run() internally."""
 
     def log(msg: str):
         print(f"[TraceIQ] {msg}", file=sys.stderr, flush=True)
@@ -81,7 +84,7 @@ def run_prompt_advisor(
 
     from agent.experiment_tools import make_experiment_tools, _get as ls_get
 
-    # Resolve metadata
+    # Resolve names
     experiment_name = experiment_id
     dataset_name = dataset_id
     try:
@@ -101,72 +104,60 @@ def run_prompt_advisor(
 
     log(f"Analyzing '{experiment_name}' on '{dataset_name}'...")
 
-    lc_tools = make_experiment_tools(api_key)
-    anthropic_tools = _build_anthropic_tools(lc_tools)
-    tool_map = {t.name: t for t in lc_tools}
+    tools = make_experiment_tools(api_key)
+
+    model = ChatAnthropic(
+        model_name="claude-sonnet-4-6",
+        api_key=anthropic_key,
+        max_tokens=8000,
+        timeout=60,      # per API call
+        max_retries=1,
+    )
+
+    agent = create_react_agent(model=model, tools=tools, prompt=SYSTEM_PROMPT)
 
     question_line = question.strip() or "What prompt improvements would increase eval scores?"
-    messages = [{"role": "user", "content": f"""Experiment: "{experiment_name}" (id: {experiment_id})
+    user_message = f"""Experiment: "{experiment_name}" (id: {experiment_id})
 Dataset: "{dataset_name}" (id: {dataset_id})
 Question: {question_line}
-Use your tools to investigate. End with a JSON block matching the required schema."""}]
+Use your tools to investigate. End with a JSON block matching the required schema."""
 
-    client = anthropic.Anthropic(api_key=anthropic_key, timeout=API_TIMEOUT)
+    log(f"Starting agent (max {RECURSION_LIMIT} tool calls, {AGENT_TIMEOUT}s timeout)...")
+
+    async def _run():
+        return await asyncio.wait_for(
+            agent.ainvoke(
+                {"messages": [{"role": "user", "content": user_message}]},
+                config={"recursion_limit": RECURSION_LIMIT},
+            ),
+            timeout=AGENT_TIMEOUT,
+        )
+
+    try:
+        result_state = asyncio.run(_run())
+    except asyncio.TimeoutError:
+        log(f"Agent timed out after {AGENT_TIMEOUT}s")
+        return {"error": f"Agent timed out after {AGENT_TIMEOUT} seconds",
+                "experiment_name": experiment_name, "dataset_name": dataset_name,
+                "experiment_id": experiment_id, "generated_at": datetime.now(timezone.utc).isoformat()}
+    except Exception as e:
+        import traceback
+        log(f"Agent failed: {e}\n{traceback.format_exc()}")
+        return {"error": f"Agent failed: {e}",
+                "experiment_name": experiment_name, "dataset_name": dataset_name,
+                "experiment_id": experiment_id, "generated_at": datetime.now(timezone.utc).isoformat()}
+
+    log("Agent finished. Extracting recommendations...")
+
+    # Extract final text from last AI message
     final_content = ""
-
-    for iteration in range(MAX_ITERATIONS):
-        log(f"Thinking... (step {iteration + 1})")
-        try:
-            response = client.messages.create(
-                model=MODEL,
-                max_tokens=MAX_TOKENS,
-                system=SYSTEM_PROMPT,
-                tools=anthropic_tools,
-                messages=messages,
-            )
-        except anthropic.APITimeoutError:
-            return {"error": f"API timed out after {API_TIMEOUT}s on step {iteration+1}",
-                    "experiment_name": experiment_name, "dataset_name": dataset_name,
-                    "experiment_id": experiment_id, "generated_at": datetime.now(timezone.utc).isoformat()}
-        except Exception as e:
-            return {"error": f"API error on step {iteration+1}: {e}",
-                    "experiment_name": experiment_name, "dataset_name": dataset_name,
-                    "experiment_id": experiment_id, "generated_at": datetime.now(timezone.utc).isoformat()}
-
-        # Capture text
-        for block in response.content:
-            if hasattr(block, "text") and block.text:
-                final_content = block.text
-
-        if response.stop_reason == "end_turn":
-            log("Analysis complete.")
+    for msg in reversed(result_state.get("messages", [])):
+        content = getattr(msg, "content", "") or ""
+        if isinstance(content, list):
+            content = " ".join(b.get("text", "") if isinstance(b, dict) else str(b) for b in content)
+        if content and len(content) > 50:
+            final_content = content
             break
-
-        # Execute tool calls
-        tool_uses = [b for b in response.content if b.type == "tool_use"]
-        if not tool_uses:
-            break
-
-        messages.append({"role": "assistant", "content": response.content})
-
-        tool_results = []
-        for tu in tool_uses:
-            log(f"Using tool: {tu.name}")
-            try:
-                lc_tool = tool_map.get(tu.name)
-                result = lc_tool.invoke(tu.input) if lc_tool else f"Unknown tool: {tu.name}"
-                if not isinstance(result, str):
-                    result = json.dumps(result, default=str)
-            except Exception as e:
-                result = f"Tool error: {e}"
-                log(f"Tool {tu.name} failed: {e}")
-            tool_results.append({
-                "type": "tool_result",
-                "tool_use_id": tu.id,
-                "content": result[:8000],
-            })
-
-        messages.append({"role": "user", "content": tool_results})
 
     parsed = _extract_json_result(final_content)
 
@@ -190,25 +181,6 @@ Use your tools to investigate. End with a JSON block matching the required schem
         output["error"] = "Could not extract structured recommendations — see raw_analysis"
 
     return output
-
-
-def _build_anthropic_tools(lc_tools) -> list:
-    result = []
-    for t in lc_tools:
-        try:
-            schema = t.args_schema.model_json_schema() if hasattr(t, "args_schema") and t.args_schema else {}
-        except Exception:
-            schema = {}
-        result.append({
-            "name": t.name,
-            "description": t.description or "",
-            "input_schema": {
-                "type": "object",
-                "properties": schema.get("properties", {}),
-                "required": schema.get("required", []),
-            },
-        })
-    return result
 
 
 def _extract_json_result(text: str) -> dict:
