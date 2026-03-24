@@ -2,136 +2,156 @@
 
 **LangSmith tells you what happened. TraceIQ tells you why — and what to change.**
 
-TraceIQ is a local web tool for AI product builders who use LangSmith. It sits on top of your existing traces and experiments and gives you agentic analysis: ask a question, get a real investigation with evidence and actionable recommendations.
+TraceIQ is a hosted web tool for AI product builders who use LangSmith. Connect to a LangSmith experiment, ask a question, and an AI agent investigates your eval results — identifying failure patterns and recommending specific prompt changes.
 
 ---
 
 ## What it does
 
-### Traces — Hypothesis Testing
-State a belief about your agent's behavior. TraceIQ fetches your production traces and tells you if the data supports it.
-
-> *"I think the agent is penalizing students for typos"*
-> → Not supported — high confidence. Feedback is consistently rubric-focused, no evidence of grammar penalization.
-
-**Analysis modes:**
-- **Prompt change** — splits traces before/after a detected prompt change
-- **Time split** — compares first half vs second half of the date range
-- **No split** — scans all traces as one group
-- **🔍 Deep analysis** — agentic mode: uses 5 tools (query, sample, classify, compute stats, compare groups) to investigate iteratively. Finds patterns humans miss.
-
 ### Experiments — Prompt Improvement
+
 Connect to a LangSmith dataset + experiment. Ask a question. An AI agent reads your eval results, identifies failure patterns, and recommends specific prompt changes.
 
 > *"Why is marks_exact_match low?"*
-> → Agent fetches failing rows, reads actual student answers and grader outputs, identifies 3 root causes, proposes concrete prompt edits.
+> → Agent fetches failing rows, reads actual inputs and outputs, identifies root causes, proposes concrete prompt edits.
 
-The agent plans its own investigation based on your question — it doesn't follow a fixed script. "Why is X low?" goes straight to failing rows. "Compare the last two experiments" uses the comparison tool.
+The agent plans its own investigation based on your question — it doesn't follow a fixed script:
+- *"Why is X low?"* → goes straight to `get_failing_rows`
+- *"What should I improve?"* → starts with `fetch_experiment_rows` to find the weakest metrics, then drills in
+- *"Compare the last two experiments"* → uses `compare_experiments`
 
 ---
 
 ## Architecture
 
 ```
-browser (index.html)
-    ↕ Server-Sent Events (streaming)
-Flask server (server.py)
-    ↕ subprocess.Popen (streams stderr live)
-    ├── traceiq.py          — traces analysis (hypothesis testing)
+Browser (index.html)
+    ↕ REST (polling /jobs/<id> every 2s)
+Flask server (server.py) — gunicorn + gevent
+    ↓ Postgres job queue
+Worker (worker.py) — separate Railway service
     └── agent/
-        ├── hypothesis_agent.py   — deep analysis agent (traces)
-        ├── prompt_advisor.py     — prompt improvement agent (experiments)
-        ├── run_advisor.py        — CLI entrypoint for prompt advisor
-        ├── tools.py              — 5 agent tools for trace analysis
-        └── experiment_tools.py  — 5 agent tools for experiment analysis
+        ├── prompt_advisor.py     — LangGraph ReAct agent (experiments)
+        ├── hypothesis_agent.py   — deepagents-based agent (traces, legacy)
+        ├── experiment_tools.py   — 5 LangSmith tools for experiment analysis
+        └── tools.py              — tools for trace analysis
+db.py                             — shared DB helpers (no Flask, no gevent)
 ```
 
-Both analysis flows stream live progress to the browser via Server-Sent Events. You see real log lines as the agent works — not a fake spinner.
+### Job queue flow
+1. User submits question → `POST /experiments/analyze/start` → job inserted as `queued`
+2. Worker polls Postgres every 2s, claims job (`FOR UPDATE SKIP LOCKED`)
+3. LangGraph agent runs, writes step updates to DB as it goes
+4. Browser polls `/jobs/<id>` every 2s, displays steps in real time
+5. Job marked `done` or `failed`, result written to DB
 
 ---
 
-## Getting started
+## Getting started (local)
 
 ```bash
 cd ~/Documents/traceiq
-python3 server.py
+cp .env.example .env   # add your API keys
+python3 server.py      # web server on :5050
+python3 worker.py      # job worker (separate terminal)
 # → open http://localhost:5050
 ```
 
-**You need:**
-- LangSmith API key (`lsv2_pt_...`)
-- Anthropic API key (for deep analysis + experiment advisor) — add to `.env`
-
-```bash
-# .env
-ANTHROPIC_API_KEY=sk-ant-...
+**Required env vars:**
 ```
+ANTHROPIC_API_KEY=sk-ant-...
+DATABASE_URL=postgresql://...   # optional locally, uses file fallback
+```
+
+---
+
+## Deployed (Railway)
+
+Live at: `https://web-production-65478.up.railway.app`
+
+Three Railway services:
+- **web** — Flask + gunicorn (gevent workers)
+- **worker** — `python3 worker.py` (job processor)
+- **Postgres** — shared DB for job queue + history
 
 ---
 
 ## UI flow
 
 1. **Connect** — enter LangSmith API key + project name
-2. **Overview** — see a 7-day sparkline of trace volume + error rate, week-over-week comparison
-3. **Traces or Experiments** — switch modes from the overview screen
-4. **Analyse** — enter a hypothesis/question, pick a mode, click Analyse
-5. **Results** — verdict, evidence, recommendations
-6. **History** — all past analyses saved locally, viewable anytime
+2. **Overview** — 7-day sparkline, error rate, week-on-week comparison
+3. **Experiments** — select dataset → select experiment → ask a question
+4. **Analysis** — agent runs, steps appear in real time as it works
+5. **Results** — overall scores, failure patterns, ranked recommendations
+6. **History** — all past analyses saved to Postgres, viewable anytime
 
 ---
 
-## What's been built (as of 2026-03-22)
+## What's built
 
 ### Core
-- ✅ Hypothesis testing over production traces (4 split modes)
-- ✅ Deep analysis agent mode (LangChain deepagents SDK, 5 tools)
-- ✅ Experiment analysis with prompt improvement advisor
-- ✅ Question-driven agent — agent plans tool calls based on what you ask
-- ✅ History — save, view, delete past analyses
+- ✅ Experiment analysis with LangGraph ReAct agent
+- ✅ Question-driven agent — plans tool calls based on what you ask
+- ✅ Async job queue via Postgres (web enqueues, worker executes)
+- ✅ Real-time step streaming — UI polls and shows agent progress
+- ✅ History — save, view, delete past analyses (Postgres + file fallback)
+
+### Agent tools (`experiment_tools.py`)
+- `list_datasets` — list all LangSmith datasets
+- `list_experiments` — list experiments for a dataset
+- `fetch_experiment_rows` — aggregated scores (all 100 rows) + sample for analysis
+- `get_failing_rows` — inputs/outputs for rows below a metric threshold (capped at 10)
+- `compare_experiments` — side-by-side comparison of two experiments
+
+### Data accuracy
+- ✅ `fetch_experiment_rows` always computes aggregated scores across all 100 rows — matches LangSmith UI exactly
+- ✅ `get_failing_rows` capped at 10 rows with 1000-char truncation — prevents context overflow
+- ✅ `eq(is_root, true)` filter — fetches top-level traces only
 
 ### UX
-- ✅ Project overview screen — sparkline chart, week-on-week deltas, key metrics
-- ✅ Guided question suggestions — contextual chips generated from your live data
-- ✅ localStorage persistence — API key and project auto-fill on return visits
-- ✅ Mode tabs appear after login (not before)
-
-### Streaming
-- ✅ Server-Sent Events for both traces and experiments analysis
-- ✅ Real `[TraceIQ]` log lines streamed live to the browser
-- ✅ Tool-level progress: "Fetching failing rows for marks_exact_match...", "Found 8 failing rows out of 20 checked"
-
-### Data
-- ✅ `eq(is_root, true)` filter — fetches top-level traces only (matches LangSmith UI count)
-- ✅ `get_experiment_results()` SDK call for accurate aggregated scores (matches LangSmith UI)
-- ✅ Read-only — never re-runs experiments, never recomputes what LangSmith already has
+- ✅ Project overview screen — sparkline chart, week-on-week deltas
+- ✅ localStorage persistence — API key and project auto-fill on return
+- ✅ Experiments-only flow — Traces tab removed
 
 ---
 
 ## Key design principles
 
-1. **Read-only** — TraceIQ is an analysis layer. It reads what LangSmith already computed. It never re-runs experiments or recomputes aggregates.
-2. **Question-driven** — the agent adapts its investigation to what you're asking. Specific question → targeted tool calls. Open question → broad scan first.
-3. **Evidence-based** — every finding cites actual data: real metric values, real input/output excerpts, real counts.
-4. **Fast by default** — standard analysis is a single LLM call. Deep/agent analysis is opt-in.
+1. **Read-only** — TraceIQ reads what LangSmith already computed. Never reruns experiments.
+2. **Question-driven** — the agent adapts its investigation to your question.
+3. **Evidence-based** — every finding cites real metric values and real examples.
+4. **Agentic, not scripted** — Claude decides which tools to call and in what order.
 
 ---
 
 ## Tech stack
 
-- **Backend**: Python 3, Flask
-- **Agent framework**: LangChain deepagents SDK (built on LangGraph)
-- **LLM**: Anthropic Claude (sonnet for analysis, haiku for classification)
+- **Backend**: Python 3.11+, Flask, gunicorn (gevent)
+- **Agent framework**: LangGraph (`create_react_agent`) + LangChain Anthropic
+- **LLM**: Anthropic Claude Sonnet
 - **Observability**: LangSmith API
-- **Frontend**: Vanilla JS, SVG charts, Server-Sent Events
-- **Tests**: pytest
+- **Database**: Postgres (Railway) with file fallback for local dev
+- **Frontend**: Vanilla JS, SVG charts, polling-based job status
+- **Hosting**: Railway (web + worker + Postgres)
+
+---
+
+## Architecture decisions
+
+See [`docs/architecture-decisions.md`](docs/architecture-decisions.md) for invariants that must not be changed, including:
+
+- Score computation must use all 100 rows (not the sample)
+- Worker must never import `server.py` (gevent monkey patch breaks asyncio)
+- `get_failing_rows` capped at 10 rows
+- Streaming via `astream(stream_mode="updates")`
 
 ---
 
 ## Roadmap
 
-- [ ] Hosting (Railway/Render) — currently local only
-- [ ] Auth — API keys stored in browser only, no accounts
-- [ ] Streaming intermediate results (partial JSON as agent works)
+- [ ] Multiple worker replicas for concurrent users (Railway: scale worker to N)
+- [ ] Streaming intermediate results to UI (currently polls on completion)
 - [ ] Compare two experiments side-by-side in UI
 - [ ] Braintrust support
+- [ ] Auth / multi-tenant
 - [ ] Landing page
