@@ -244,23 +244,29 @@ def make_experiment_tools(api_key: str) -> list:
 
                 score = scores.get(metric)
                 if score is not None and score < threshold:
+                    # Truncate inputs/outputs to keep context manageable
+                    inputs = run.get("inputs") or {}
+                    outputs = run.get("outputs") or {}
+                    inputs_str = json.dumps(inputs, default=str)[:1000]
+                    outputs_str = json.dumps(outputs, default=str)[:1000]
                     failing.append({
                         "id": run.get("id", ""),
-                        "inputs": run.get("inputs"),
-                        "outputs": run.get("outputs"),
+                        "inputs": inputs_str,
+                        "outputs": outputs_str,
                         "scores": scores,
                         f"{metric}_score": score,
-                        "status": run.get("status", ""),
-                        "error": run.get("error"),
                     })
 
             print(f"[TraceIQ] Found {len(failing)} failing rows out of {len(runs)} checked for '{metric}' < {threshold}", file=sys.stderr, flush=True)
+            # Cap at 10 samples — enough to identify patterns without flooding Claude's context
+            sample = failing[:10]
             return json.dumps({
                 "metric": metric,
                 "threshold": threshold,
                 "total_failing": len(failing),
                 "total_checked": len(runs),
-                "failing_rows": failing,
+                "sample_size": len(sample),
+                "failing_rows": sample,
             }, default=str)
         except Exception as e:
             return json.dumps({"error": str(e)})
