@@ -172,40 +172,62 @@ def make_experiment_tools(api_key: str) -> list:
 
         Args:
             experiment_id: The experiment session UUID.
-            limit: Maximum number of rows to fetch (default 50).
+            limit: Maximum number of rows to fetch for previews (default 50).
 
-        Returns a JSON list of rows with id, input_preview, output_preview, scores,
-        status, and error.
+        Returns aggregated_scores (computed across ALL 100 rows, matching LangSmith)
+        plus a sample of rows for pattern analysis.
         """
         try:
             import sys
-            print(f"[TraceIQ] Fetching experiment rows (up to {limit})...", file=sys.stderr, flush=True)
+            from collections import defaultdict
+
+            # Always fetch all 100 for accurate aggregation
+            print(f"[TraceIQ] Fetching experiment rows...", file=sys.stderr, flush=True)
             data = _post(api_key, "/runs/query", {
                 "session": [experiment_id],
                 "filter": "eq(is_root, true)",
-                "limit": min(limit, 50),  # hard cap at 50
+                "limit": 100,
             })
 
             runs = data.get("runs", []) if isinstance(data, dict) else data
             if not isinstance(runs, list):
                 runs = []
 
-            print(f"[TraceIQ] Got {len(runs)} experiment rows — extracting scores...", file=sys.stderr, flush=True)
-            result = []
-            for run in runs:
-                feedback_stats = run.get("feedback_stats") or {}
-                scores = _avg_scores_from_feedback_stats(feedback_stats)
+            print(f"[TraceIQ] Got {len(runs)} rows — computing scores...", file=sys.stderr, flush=True)
 
-                result.append({
+            # Compute accurate aggregated scores across ALL runs
+            totals = defaultdict(list)
+            for run in runs:
+                fb = run.get("feedback_stats") or {}
+                for metric, stats in fb.items():
+                    avg = stats.get("avg") if isinstance(stats, dict) else None
+                    if avg is not None:
+                        totals[metric].append(avg)
+
+            aggregated_scores = {
+                k: round(sum(v) / len(v), 3)
+                for k, v in totals.items()
+            }
+
+            # Return a capped sample of rows for pattern analysis
+            sample = runs[:min(limit, 50)]
+            rows = []
+            for run in sample:
+                fb = run.get("feedback_stats") or {}
+                scores = _avg_scores_from_feedback_stats(fb)
+                rows.append({
                     "id": run.get("id", ""),
                     "input_preview": _text_preview(run.get("inputs"), 200),
                     "output_preview": _text_preview(run.get("outputs"), 200),
                     "scores": scores,
                     "status": run.get("status", ""),
-                    "error": run.get("error"),
                 })
 
-            return json.dumps(result, default=str)
+            return json.dumps({
+                "total_rows": len(runs),
+                "aggregated_scores": aggregated_scores,
+                "sample_rows": rows,
+            }, default=str)
         except Exception as e:
             return json.dumps({"error": str(e)})
 
