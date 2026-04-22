@@ -6,7 +6,6 @@ Created via `make_experiment_tools(api_key)` factory function.
 """
 
 import json
-import statistics
 from typing import Any
 
 
@@ -174,14 +173,25 @@ def make_experiment_tools(api_key: str) -> list:
             experiment_id: The experiment session UUID.
             limit: Maximum number of rows to fetch for previews (default 50).
 
-        Returns aggregated_scores (computed across ALL 100 rows, matching LangSmith)
+        Returns aggregated_scores (authoritative, from LangSmith session stats)
         plus a sample of rows for pattern analysis.
         """
         try:
             import sys
-            from collections import defaultdict
 
-            # Always fetch all 100 for accurate aggregation
+            # 1) Authoritative feedback stats come from the session endpoint
+            #    with include_stats=true — NOT from /runs/query (which returns
+            #    empty feedback_stats on root runs for most evaluators).
+            print(f"[TraceIQ] Fetching experiment stats...", file=sys.stderr, flush=True)
+            session = _get(
+                api_key,
+                f"/sessions/{experiment_id}",
+                params={"include_stats": "true"},
+            )
+            session_feedback = session.get("feedback_stats") if isinstance(session, dict) else None
+            aggregated_scores = _avg_scores_from_feedback_stats(session_feedback or {})
+
+            # 2) Fetch runs for input/output previews (pattern analysis)
             print(f"[TraceIQ] Fetching experiment rows...", file=sys.stderr, flush=True)
             data = _post(api_key, "/runs/query", {
                 "session": [experiment_id],
@@ -193,21 +203,7 @@ def make_experiment_tools(api_key: str) -> list:
             if not isinstance(runs, list):
                 runs = []
 
-            print(f"[TraceIQ] Got {len(runs)} rows — computing scores...", file=sys.stderr, flush=True)
-
-            # Compute accurate aggregated scores across ALL runs
-            totals = defaultdict(list)
-            for run in runs:
-                fb = run.get("feedback_stats") or {}
-                for metric, stats in fb.items():
-                    avg = stats.get("avg") if isinstance(stats, dict) else None
-                    if avg is not None:
-                        totals[metric].append(avg)
-
-            aggregated_scores = {
-                k: round(sum(v) / len(v), 3)
-                for k, v in totals.items()
-            }
+            print(f"[TraceIQ] Got {len(runs)} rows.", file=sys.stderr, flush=True)
 
             # Return a capped sample of rows for pattern analysis
             sample = runs[:min(limit, 50)]
@@ -226,6 +222,7 @@ def make_experiment_tools(api_key: str) -> list:
             return json.dumps({
                 "total_rows": len(runs),
                 "aggregated_scores": aggregated_scores,
+                "aggregated_scores_source": "langsmith_session_feedback_stats",
                 "sample_rows": rows,
             }, default=str)
         except Exception as e:
@@ -308,38 +305,35 @@ def make_experiment_tools(api_key: str) -> list:
         Returns a side-by-side comparison JSON with per-metric averages and deltas.
         """
         def _fetch_metrics(exp_id: str) -> tuple[dict, int]:
-            """Returns (metric -> list of scores, row_count)."""
-            data = _post(api_key, "/runs/query", {
-                "session": [exp_id],
-                "filter": "eq(is_root, true)",
-                "limit": 200,
-            })
-            runs = data.get("runs", []) if isinstance(data, dict) else data
-            if not isinstance(runs, list):
-                runs = []
-
-            metric_values: dict[str, list[float]] = {}
-            for run in runs:
-                feedback_stats = run.get("feedback_stats") or {}
-                scores = _avg_scores_from_feedback_stats(feedback_stats)
-                for metric, val in scores.items():
-                    metric_values.setdefault(metric, []).append(val)
-
-            return metric_values, len(runs)
+            """Returns (metric -> avg score, row_count) using session feedback_stats."""
+            session = _get(
+                api_key,
+                f"/sessions/{exp_id}",
+                params={"include_stats": "true"},
+            )
+            fb = session.get("feedback_stats") if isinstance(session, dict) else None
+            metric_avgs = _avg_scores_from_feedback_stats(fb or {})
+            # run_count lives on the session object under different possible keys
+            row_count = 0
+            if isinstance(session, dict):
+                row_count = (
+                    session.get("run_count")
+                    or session.get("example_count")
+                    or session.get("total_runs")
+                    or 0
+                )
+            return metric_avgs, int(row_count)
 
         try:
             metrics_a, count_a = _fetch_metrics(experiment_id_a)
             metrics_b, count_b = _fetch_metrics(experiment_id_b)
 
-            # Combine all metrics seen in either experiment
             all_metrics = sorted(set(list(metrics_a.keys()) + list(metrics_b.keys())))
 
             comparison = []
             for metric in all_metrics:
-                vals_a = metrics_a.get(metric, [])
-                vals_b = metrics_b.get(metric, [])
-                avg_a = round(statistics.mean(vals_a), 4) if vals_a else None
-                avg_b = round(statistics.mean(vals_b), 4) if vals_b else None
+                avg_a = metrics_a.get(metric)
+                avg_b = metrics_b.get(metric)
                 delta = round(avg_b - avg_a, 4) if (avg_a is not None and avg_b is not None) else None
                 comparison.append({
                     "metric": metric,

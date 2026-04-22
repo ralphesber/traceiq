@@ -2206,6 +2206,32 @@
 
     // Scores table
     const sortedMetrics = Object.entries(overallScores).sort((a, b) => a[1] - b[1]);
+
+    // Format a score based on its magnitude. Only metrics with all values in
+    // [0, 1] get rendered as percentages; everything else shows the raw number
+    // so we don't mangle metrics like PoA beta (-1.84) or gamma (207.46).
+    const numericValues = sortedMetrics.map(([, v]) => v).filter(v => typeof v === 'number' && isFinite(v));
+    const allRatios = numericValues.length > 0 && numericValues.every(v => v >= 0 && v <= 1);
+    const maxAbs = numericValues.length > 0 ? Math.max(...numericValues.map(v => Math.abs(v))) : 1;
+
+    function formatScore(score) {
+      if (typeof score !== 'number' || !isFinite(score)) return String(score);
+      if (allRatios) return (score * 100).toFixed(1) + '%';
+      // Raw numeric display — pick precision based on magnitude
+      const abs = Math.abs(score);
+      if (abs >= 100) return score.toFixed(1);
+      if (abs >= 1) return score.toFixed(2);
+      return score.toFixed(3);
+    }
+
+    function barPercent(score) {
+      if (typeof score !== 'number' || !isFinite(score)) return 0;
+      if (allRatios) return Math.min(100, Math.max(0, Math.round(score * 100)));
+      // Scale bar against the largest absolute value in this metric set
+      if (maxAbs === 0) return 0;
+      return Math.min(100, Math.max(0, Math.round((Math.abs(score) / maxAbs) * 100)));
+    }
+
     const scoresHtml = sortedMetrics.length > 0 ? `
       <table class="scores-table">
         <thead>
@@ -2217,12 +2243,12 @@
         </thead>
         <tbody>
           ${sortedMetrics.map(([metric, score]) => {
-            const pct = Math.min(100, Math.round(score * 100));
+            const pct = barPercent(score);
             const isWeak = weakestMetrics.has(metric);
             return `
               <tr>
                 <td>${esc(metric)}${isWeak ? ' <span style="color:var(--red);font-size:11px">▼ weak</span>' : ''}</td>
-                <td class="${isWeak ? 'score-weak' : 'score-ok'}">${(score * 100).toFixed(1)}%</td>
+                <td class="${isWeak ? 'score-weak' : 'score-ok'}">${formatScore(score)}</td>
                 <td>
                   <div class="score-bar-wrap">
                     <div class="score-bar-bg">
