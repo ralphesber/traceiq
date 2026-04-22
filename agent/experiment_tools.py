@@ -77,6 +77,22 @@ def _avg_scores_from_feedback_stats(feedback_stats: dict) -> dict:
     return scores
 
 
+def _merged_session_feedback(session: dict) -> dict:
+    """Merge both feedback_stats fields the LangSmith session object carries.
+
+    The LangSmith SDK's get_experiment_results does the same merge:
+    - feedback_stats: aggregates of feedback attached to runs inside the session
+    - session_feedback_stats: feedback attached at the session/experiment level
+    Evaluator metrics can live in either depending on how the evaluator was wired.
+    """
+    if not isinstance(session, dict):
+        return {}
+    return {
+        **(session.get("feedback_stats") or {}),
+        **(session.get("session_feedback_stats") or {}),
+    }
+
+
 def _text_preview(obj: Any, max_len: int = 200) -> str:
     """Extract a short text preview from inputs/outputs."""
     if obj is None:
@@ -180,16 +196,16 @@ def make_experiment_tools(api_key: str) -> list:
             import sys
 
             # 1) Authoritative feedback stats come from the session endpoint
-            #    with include_stats=true — NOT from /runs/query (which returns
-            #    empty feedback_stats on root runs for most evaluators).
+            #    with include_stats=true. We must merge BOTH feedback_stats
+            #    (run-level) and session_feedback_stats (experiment-level) —
+            #    evaluator metrics can live in either.
             print(f"[TraceIQ] Fetching experiment stats...", file=sys.stderr, flush=True)
             session = _get(
                 api_key,
                 f"/sessions/{experiment_id}",
                 params={"include_stats": "true"},
             )
-            session_feedback = session.get("feedback_stats") if isinstance(session, dict) else None
-            aggregated_scores = _avg_scores_from_feedback_stats(session_feedback or {})
+            aggregated_scores = _avg_scores_from_feedback_stats(_merged_session_feedback(session))
 
             # 2) Fetch runs for input/output previews (pattern analysis)
             print(f"[TraceIQ] Fetching experiment rows...", file=sys.stderr, flush=True)
@@ -311,8 +327,7 @@ def make_experiment_tools(api_key: str) -> list:
                 f"/sessions/{exp_id}",
                 params={"include_stats": "true"},
             )
-            fb = session.get("feedback_stats") if isinstance(session, dict) else None
-            metric_avgs = _avg_scores_from_feedback_stats(fb or {})
+            metric_avgs = _avg_scores_from_feedback_stats(_merged_session_feedback(session))
             # run_count lives on the session object under different possible keys
             row_count = 0
             if isinstance(session, dict):
